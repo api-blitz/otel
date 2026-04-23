@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
-  "changelog": ["@changesets/changelog-github", { "repo": "kubiks-inc/otel" }],
+  "changelog": ["@changesets/changelog-github", { "repo": "api-blitz/otel" }],
   "commit": false,
   "fixed": [],
   "linked": [],

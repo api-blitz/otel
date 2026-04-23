@@ -1,6 +1,6 @@
 # The only Telemetry SDK you’ll ever need for TypeScript observability.
 
-[![Star History Chart](https://api.star-history.com/svg?repos=kubiks-inc/otel&type=Date&t=5)](https://www.star-history.com/#kubiks-inc/otel&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=api-blitz/otel&type=Date&t=5)](https://www.star-history.com/#api-blitz/otel&Date)
 
 ## Vision
 
@@ -12,17 +12,55 @@ Our goal is to bring the TypeScript ecosystem the observability tools it’s bee
 
 ## Supported integrations
 
-- [`@kubiks/otel-autumn`](./packages/otel-autumn/README.md)
-- [`@kubiks/otel-better-auth`](./packages/otel-better-auth/README.md)
-- [`@kubiks/otel-clickhouse`](./packages/otel-clickhouse/README.md)
-- [`@kubiks/otel-drizzle`](./packages/otel-drizzle/README.md)
-- [`@kubiks/otel-e2b`](./packages/otel-e2b/README.md)
-- [`@kubiks/otel-inbound`](./packages/otel-inbound/README.md)
-- [`@kubiks/otel-mongodb`](./packages/otel-mongodb/README.md)
-- [`@kubiks/otel-polar`](./packages/otel-polar/README.md)
-- [`@kubiks/otel-resend`](./packages/otel-resend/README.md)
-- [`@kubiks/otel-upstash-queues`](./packages/otel-upstash-queues/README.md)
-- [`@kubiks/otel-upstash-workflow`](./packages/otel-upstash-workflow/README.md)
+- [`@api-blitz/otel-autumn`](./packages/otel-autumn/README.md)
+- [`@api-blitz/otel-drizzle`](./packages/otel-drizzle/README.md)
+
+---
+
+## Installation
+
+Every package has a peer dependency on `@opentelemetry/api`, so install it alongside:
+
+```bash
+pnpm add @api-blitz/otel-drizzle @opentelemetry/api
+# or: npm install / yarn add / bun add
+```
+
+Then in your code:
+
+```ts
+import { instrumentDrizzle } from "@api-blitz/otel-drizzle";
+```
+
+Versions follow semver. Pin with `^1.0.0` (caret) to get patch and minor updates automatically.
+
+---
+
+## Releasing (maintainers)
+
+Releases go out by hand from a local checkout. Per change:
+
+```bash
+pnpm changeset                 # pick packages + bump type, write summary
+```
+
+When ready to ship the accumulated changesets:
+
+```bash
+pnpm version-packages          # consumes changesets, bumps versions, updates CHANGELOGs
+git commit -am "Version Packages"
+pnpm release                   # runs build, then changeset publish
+git push --follow-tags
+```
+
+`pnpm release` uses the `NPM_TOKEN` in your shell (or `npm login` session) and publishes every package whose local version is ahead of the npm registry.
+
+For the very first publish on a brand-new scope (nothing on the registry yet), skip the Changesets dance and just run:
+
+```bash
+pnpm build
+pnpm -r publish --access public
+```
 
 ---
 
@@ -34,7 +72,11 @@ Our goal is to bring the TypeScript ecosystem the observability tools it’s bee
 - [Next.js Opentelemetry SDK](https://nextjs.org)
 - ...and anything you need next.
 
-Need support for something? [Open an issue](https://github.com/kubiks-inc/otel/issues) to request or ship a new integration.
+Need support for something? [Open an issue](https://github.com/api-blitz/otel/issues) to request or ship a new integration.
+
+## Credits
+
+Originally forked from [Kubiks](https://github.com/kubiks-inc/otel). Continued under the `@api-blitz/*` scope.
 
 ## License
 

@@ -1,14 +1,14 @@
 {
-  "name": "@kubiks/otel-autumn",
-  "version": "2.0.0",
+  "name": "@api-blitz/otel-autumn",
+  "version": "1.0.0",
   "private": false,
   "publishConfig": {
     "access": "public"
   },
   "description": "OpenTelemetry instrumentation for the Autumn billing SDK",
-  "author": "Kubiks",
+  "author": "api-blitz",
   "license": "MIT",
-  "repository": "kubiks-inc/otel",
+  "repository": "api-blitz/otel",
   "sideEffects": false,
   "type": "module",
   "exports": {

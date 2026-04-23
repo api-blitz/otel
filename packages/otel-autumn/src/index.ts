@@ -8,8 +8,8 @@ import {
 } from "@opentelemetry/api";
 import type { Autumn } from "autumn-js";
 
-const DEFAULT_TRACER_NAME = "@kubiks/otel-autumn";
-const INSTRUMENTED_FLAG = Symbol("kubiksOtelAutumnInstrumented");
+const DEFAULT_TRACER_NAME = "@api-blitz/otel-autumn";
+const INSTRUMENTED_FLAG = Symbol("apiBlitzOtelAutumnInstrumented");
 
 // Common semantic attributes
 export const SEMATTRS_BILLING_SYSTEM = "billing.system" as const;
@@ -88,7 +88,7 @@ export const SEMATTRS_AUTUMN_REFERRAL_CODE = "autumn.referral_code" as const;
  * Configuration for Autumn instrumentation.
  */
 export interface InstrumentAutumnConfig {
-  /** Tracer name; defaults to "@kubiks/otel-autumn". */
+  /** Tracer name; defaults to "@api-blitz/otel-autumn". */
   tracerName?: string;
   /**
    * Capture potentially sensitive customer fields (email, name, payment URLs,
@@ -740,7 +740,7 @@ function wrapTopLevel(
  * @example
  * ```ts
  * import { Autumn } from "autumn-js";
- * import { instrumentAutumn } from "@kubiks/otel-autumn";
+ * import { instrumentAutumn } from "@api-blitz/otel-autumn";
  *
  * const autumn = new Autumn({ secretKey: process.env.AUTUMN_SECRET_KEY! });
  * instrumentAutumn(autumn);

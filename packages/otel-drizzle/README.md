@@ -1,19 +1,19 @@
-# @kubiks/otel-drizzle
+# @api-blitz/otel-drizzle
 
 OpenTelemetry instrumentation for [Drizzle ORM](https://orm.drizzle.team/). Add distributed tracing to your database queries with a single line of code.
 
-![Drizzle ORM Trace Visualization](https://github.com/kubiks-inc/otel/blob/main/images/otel-drizzle-trace.png)
+![Drizzle ORM Trace Visualization](https://github.com/api-blitz/otel/blob/main/images/otel-drizzle-trace.png)
 
 _Visualize your database queries with detailed span information including operation type, SQL statements, and performance metrics._
 
 ## Installation
 
 ```bash
-npm install @kubiks/otel-drizzle
+npm install @api-blitz/otel-drizzle
 # or
-pnpm add @kubiks/otel-drizzle
+pnpm add @api-blitz/otel-drizzle
 # or
-yarn add @kubiks/otel-drizzle
+yarn add @api-blitz/otel-drizzle
 ```
 
 **Peer Dependencies:** `@opentelemetry/api` >= 1.9.0, `drizzle-orm` >= 0.28.0
@@ -32,7 +32,7 @@ Works with any TypeScript framework and Node.js runtime that Drizzle supports in
 
 Works with any observability platform that supports OpenTelemetry including:
 
-- [Kubiks](https://kubiks.ai)
+- [api-blitz](https://github.com/api-blitz)
 - [Sentry](https://sentry.io)
 - [Axiom](https://axiom.co)
 - [Datadog](https://www.datadoghq.com)
@@ -48,7 +48,7 @@ Use `instrumentDrizzleClient()` to add tracing to your Drizzle database instance
 
 ```typescript
 import { drizzle } from "drizzle-orm/postgres-js";
-import { instrumentDrizzleClient } from "@kubiks/otel-drizzle";
+import { instrumentDrizzleClient } from "@api-blitz/otel-drizzle";
 
 // Create your Drizzle database instance as usual
 const db = drizzle(process.env.DATABASE_URL!);
@@ -68,7 +68,7 @@ const users = await db.select().from(usersTable);
 // PostgreSQL with postgres.js
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { instrumentDrizzleClient } from "@kubiks/otel-drizzle";
+import { instrumentDrizzleClient } from "@api-blitz/otel-drizzle";
 
 // Using connection string directly
 const db = drizzle(process.env.DATABASE_URL!);
@@ -89,7 +89,7 @@ instrumentDrizzleClient(db, {
 // PostgreSQL with node-postgres (pg)
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { instrumentDrizzleClient } from "@kubiks/otel-drizzle";
+import { instrumentDrizzleClient } from "@api-blitz/otel-drizzle";
 
 // Using connection string directly
 const db = drizzle(process.env.DATABASE_URL!);
@@ -107,7 +107,7 @@ instrumentDrizzleClient(db, { dbSystem: "postgresql" });
 // MySQL with mysql2
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { instrumentDrizzleClient } from "@kubiks/otel-drizzle";
+import { instrumentDrizzleClient } from "@api-blitz/otel-drizzle";
 
 // Using connection string directly
 const db = drizzle(process.env.DATABASE_URL!);
@@ -135,7 +135,7 @@ instrumentDrizzleClient(db, {
 // SQLite with better-sqlite3
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
-import { instrumentDrizzleClient } from "@kubiks/otel-drizzle";
+import { instrumentDrizzleClient } from "@api-blitz/otel-drizzle";
 
 // Using file path directly
 const db = drizzle("sqlite.db");
@@ -151,7 +151,7 @@ instrumentDrizzleClient(db, { dbSystem: "sqlite" });
 // SQLite with LibSQL/Turso
 import { drizzle } from "drizzle-orm/libsql";
 import { createClient } from "@libsql/client";
-import { instrumentDrizzleClient } from "@kubiks/otel-drizzle";
+import { instrumentDrizzleClient } from "@api-blitz/otel-drizzle";
 
 // Using connection config directly
 const db = drizzle({
@@ -214,7 +214,7 @@ The instrumentation adds the following attributes to each span following [OpenTe
 | `db.statement`   | Full SQL query        | `select "id", "name" from "users"...` |
 | `db.system`      | Database system       | `postgresql`                          |
 | `db.name`        | Database name         | `myapp`                               |
-| `operation.name` | Client operation name | `kubiks_otel-drizzle.client`          |
+| `operation.name` | Client operation name | `apiBlitz_otel-drizzle.client`          |
 
 ## License
 
