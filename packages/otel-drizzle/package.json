@@ -1,14 +1,14 @@
 {
-  "name": "@kubiks/otel-drizzle",
-  "version": "2.1.0",
+  "name": "@api-blitz/otel-drizzle",
+  "version": "1.0.0",
   "private": false,
   "publishConfig": {
     "access": "public"
   },
   "description": "OpenTelemetry instrumentation for Drizzle ORM",
-  "author": "Kubiks",
+  "author": "api-blitz",
   "license": "MIT",
-  "repository": "kubiks-inc/otel",
+  "repository": "api-blitz/otel",
   "sideEffects": false,
   "type": "module",
   "exports": {

@@ -1,22 +1,22 @@
-# @kubiks/otel-autumn
+# @api-blitz/otel-autumn
 
 OpenTelemetry instrumentation for the [Autumn](https://useautumn.com) billing SDK (`autumn-js`).
 Capture spans for every Autumn API call — feature access checks, usage tracking, the full billing lifecycle, customer and entity management, balances, events, plans, features, and referrals — and enrich them with rich billing metadata.
 
-![Autumn Trace Visualization](https://github.com/kubiks-inc/otel/blob/main/images/otel-autumn-trace.png)
+![Autumn Trace Visualization](https://github.com/api-blitz/otel/blob/main/images/otel-autumn-trace.png)
 
 _Visualize your billing operations with detailed span information including customer IDs, plan IDs, feature balances, payment flow state, and Stripe invoice data._
 
 ## Installation
 
 ```bash
-npm install @kubiks/otel-autumn
+npm install @api-blitz/otel-autumn
 # or
-pnpm add @kubiks/otel-autumn
+pnpm add @api-blitz/otel-autumn
 # or
-yarn add @kubiks/otel-autumn
+yarn add @api-blitz/otel-autumn
 # or
-bun add @kubiks/otel-autumn
+bun add @api-blitz/otel-autumn
 ```
 
 **Peer dependencies:** `@opentelemetry/api` >= 1.9.0, `autumn-js` >= 1.0.0 < 2.0.0
@@ -25,7 +25,7 @@ bun add @kubiks/otel-autumn
 
 ```ts
 import { Autumn } from "autumn-js";
-import { instrumentAutumn } from "@kubiks/otel-autumn";
+import { instrumentAutumn } from "@api-blitz/otel-autumn";
 
 const autumn = new Autumn({
   secretKey: process.env.AUTUMN_SECRET_KEY!,
@@ -92,10 +92,10 @@ The instrumentation wraps every method on the Autumn SDK client — 2 top-level 
 ## Configuration
 
 ```ts
-import { instrumentAutumn } from "@kubiks/otel-autumn";
+import { instrumentAutumn } from "@api-blitz/otel-autumn";
 
 instrumentAutumn(autumn, {
-  // Custom tracer name (default: "@kubiks/otel-autumn")
+  // Custom tracer name (default: "@api-blitz/otel-autumn")
   tracerName: "my-app-autumn-tracer",
 
   // Emit potentially sensitive customer data (payment URLs, portal URLs).
@@ -379,7 +379,7 @@ import { ConsoleSpanExporter } from "@opentelemetry/sdk-trace-node";
 import { Resource } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
 import { Autumn } from "autumn-js";
-import { instrumentAutumn } from "@kubiks/otel-autumn";
+import { instrumentAutumn } from "@api-blitz/otel-autumn";
 
 const sdk = new NodeSDK({
   resource: new Resource({ [ATTR_SERVICE_NAME]: "my-app" }),
@@ -409,7 +409,7 @@ instrumentAutumn(autumn);
 ```ts
 import express from "express";
 import { Autumn } from "autumn-js";
-import { instrumentAutumn } from "@kubiks/otel-autumn";
+import { instrumentAutumn } from "@api-blitz/otel-autumn";
 
 const app = express();
 const autumn = new Autumn({ secretKey: process.env.AUTUMN_SECRET_KEY! });
@@ -438,7 +438,7 @@ app.post("/messages", async (req, res) => {
 ```ts
 // lib/autumn.ts
 import { Autumn } from "autumn-js";
-import { instrumentAutumn } from "@kubiks/otel-autumn";
+import { instrumentAutumn } from "@api-blitz/otel-autumn";
 
 const autumn = new Autumn({ secretKey: process.env.AUTUMN_SECRET_KEY! });
 instrumentAutumn(autumn);
@@ -471,7 +471,7 @@ export async function POST() {
 ```ts
 import { Hono } from "hono";
 import { Autumn } from "autumn-js";
-import { instrumentAutumn } from "@kubiks/otel-autumn";
+import { instrumentAutumn } from "@api-blitz/otel-autumn";
 
 const app = new Hono();
 const autumn = new Autumn({ secretKey: process.env.AUTUMN_SECRET_KEY! });
@@ -495,7 +495,7 @@ This package includes full TypeScript definitions. The instrumentation preserves
 
 ```ts
 import { Autumn } from "autumn-js";
-import { instrumentAutumn } from "@kubiks/otel-autumn";
+import { instrumentAutumn } from "@api-blitz/otel-autumn";
 
 const autumn = new Autumn({ secretKey: "..." });
 instrumentAutumn(autumn);
@@ -520,7 +520,7 @@ import {
   SEMATTRS_AUTUMN_PLAN_ID,
   SEMATTRS_AUTUMN_ALLOWED,
   SEMATTRS_BILLING_OPERATION,
-} from "@kubiks/otel-autumn";
+} from "@api-blitz/otel-autumn";
 ```
 
 ## License

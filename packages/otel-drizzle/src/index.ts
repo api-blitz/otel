@@ -6,9 +6,9 @@ import {
   type Span,
 } from "@opentelemetry/api";
 
-const DEFAULT_TRACER_NAME = "@kubiks/otel-drizzle";
+const DEFAULT_TRACER_NAME = "@api-blitz/otel-drizzle";
 const DEFAULT_DB_SYSTEM = "postgresql";
-const INSTRUMENTED_FLAG = "__kubiksOtelDrizzleInstrumented" as const;
+const INSTRUMENTED_FLAG = "__apiBlitzOtelDrizzleInstrumented" as const;
 
 // Semantic conventions for database attributes
 export const SEMATTRS_DB_SYSTEM = "db.system";
@@ -36,7 +36,7 @@ interface DrizzleClientLike {
  */
 export interface InstrumentDrizzleConfig {
   /**
-   * Custom tracer name. Defaults to "\@kubiks/otel-drizzle".
+   * Custom tracer name. Defaults to "\@api-blitz/otel-drizzle".
    */
   tracerName?: string;
 
@@ -160,7 +160,7 @@ function finalizeSpan(span: Span, error?: unknown): void {
  * // PostgreSQL with node-postgres
  * import { drizzle } from 'drizzle-orm/node-postgres';
  * import { Pool } from 'pg';
- * import { instrumentDrizzle } from '@kubiks/otel-drizzle';
+ * import { instrumentDrizzle } from '@api-blitz/otel-drizzle';
  *
  * const pool = new Pool({ connectionString: process.env.DATABASE_URL });
  * const instrumentedPool = instrumentDrizzle(pool, {
@@ -177,7 +177,7 @@ function finalizeSpan(span: Span, error?: unknown): void {
  * // MySQL with mysql2
  * import { drizzle } from 'drizzle-orm/mysql2';
  * import mysql from 'mysql2/promise';
- * import { instrumentDrizzle } from '@kubiks/otel-drizzle';
+ * import { instrumentDrizzle } from '@api-blitz/otel-drizzle';
  *
  * const connection = await mysql.createConnection({
  *   host: 'localhost',
@@ -193,7 +193,7 @@ function finalizeSpan(span: Span, error?: unknown): void {
  * // SQLite with better-sqlite3
  * import { drizzle } from 'drizzle-orm/better-sqlite3';
  * import Database from 'better-sqlite3';
- * import { instrumentDrizzle } from '@kubiks/otel-drizzle';
+ * import { instrumentDrizzle } from '@api-blitz/otel-drizzle';
  *
  * const sqlite = new Database('sqlite.db');
  * const instrumentedSqlite = instrumentDrizzle(sqlite, { dbSystem: 'sqlite' });
@@ -205,7 +205,7 @@ function finalizeSpan(span: Span, error?: unknown): void {
  * // LibSQL/Turso
  * import { drizzle } from 'drizzle-orm/libsql';
  * import { createClient } from '@libsql/client';
- * import { instrumentDrizzle } from '@kubiks/otel-drizzle';
+ * import { instrumentDrizzle } from '@api-blitz/otel-drizzle';
  *
  * const client = createClient({
  *   url: process.env.DATABASE_URL!,
@@ -390,7 +390,7 @@ interface DrizzleDbLike {
  * // PostgreSQL with postgres.js
  * import { drizzle } from 'drizzle-orm/postgres-js';
  * import postgres from 'postgres';
- * import { instrumentDrizzleClient } from '@kubiks/otel-drizzle';
+ * import { instrumentDrizzleClient } from '@api-blitz/otel-drizzle';
  *
  * // Using connection string
  * const db = drizzle(process.env.DATABASE_URL!);
@@ -407,7 +407,7 @@ interface DrizzleDbLike {
  * // PostgreSQL with node-postgres (pg)
  * import { drizzle } from 'drizzle-orm/node-postgres';
  * import { Pool } from 'pg';
- * import { instrumentDrizzleClient } from '@kubiks/otel-drizzle';
+ * import { instrumentDrizzleClient } from '@api-blitz/otel-drizzle';
  *
  * // Using connection string
  * const db = drizzle(process.env.DATABASE_URL!);
@@ -429,7 +429,7 @@ interface DrizzleDbLike {
  * // MySQL with mysql2
  * import { drizzle } from 'drizzle-orm/mysql2';
  * import mysql from 'mysql2/promise';
- * import { instrumentDrizzleClient } from '@kubiks/otel-drizzle';
+ * import { instrumentDrizzleClient } from '@api-blitz/otel-drizzle';
  *
  * // Using connection string
  * const db = drizzle(process.env.DATABASE_URL!);
@@ -455,7 +455,7 @@ interface DrizzleDbLike {
  * // SQLite with better-sqlite3
  * import { drizzle } from 'drizzle-orm/better-sqlite3';
  * import Database from 'better-sqlite3';
- * import { instrumentDrizzleClient } from '@kubiks/otel-drizzle';
+ * import { instrumentDrizzleClient } from '@api-blitz/otel-drizzle';
  *
  * // Using file path
  * const db = drizzle('sqlite.db');
@@ -472,7 +472,7 @@ interface DrizzleDbLike {
  * // SQLite with LibSQL/Turso
  * import { drizzle } from 'drizzle-orm/libsql';
  * import { createClient } from '@libsql/client';
- * import { instrumentDrizzleClient } from '@kubiks/otel-drizzle';
+ * import { instrumentDrizzleClient } from '@api-blitz/otel-drizzle';
  *
  * // Using connection config
  * const db = drizzle({

@@ -145,7 +145,7 @@ function findSpan(name: string) {
   return span;
 }
 
-describe("@kubiks/otel-autumn", () => {
+describe("@api-blitz/otel-autumn", () => {
   describe("lifecycle", () => {
     it("returns the same instance", () => {
       const client = createMockAutumnClient();

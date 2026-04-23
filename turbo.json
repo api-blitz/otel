@@ -26,7 +26,7 @@
       "inputs": ["**/*.{md,mdx}"]
     },
     "build-release-packages": {
-      "dependsOn": ["@kubiks/otel-drizzle"]
+      "dependsOn": ["@api-blitz/otel-drizzle"]
     },
     "root-conformance": {},
     "//#root-conformance": {},
