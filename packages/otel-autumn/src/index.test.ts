@@ -546,4 +546,170 @@ describe("@api-blitz/otel-autumn", () => {
       expect(spans.filter((s) => s.name === "autumn.track").length).toBe(1);
     });
   });
+
+  describe("pre-1.0 compatibility", () => {
+    function createMockPreV1Client() {
+      // Mirrors autumn-js 0.0.80: top-level attach/cancel/setupPayment/usage
+      // with snake_case fields, responses wrapped as Result<T, E> = { data, error }.
+      return {
+        check: vi.fn().mockResolvedValue({
+          data: {
+            allowed: true,
+            customer_id: "cus_1",
+            balance: { feature_id: "messages", remaining: 42 },
+          },
+          error: null,
+        }),
+        track: vi.fn().mockResolvedValue({
+          data: {
+            id: "evt_1",
+            customer_id: "cus_1",
+            feature_id: "messages",
+          },
+          error: null,
+        }),
+        attach: vi.fn().mockResolvedValue({
+          data: {
+            checkout_url: "https://checkout.stripe.com/pay/cs_test",
+            customer_id: "cus_1",
+            product_ids: ["pro"],
+            code: "ok",
+            message: "",
+          },
+          error: null,
+        }),
+        cancel: vi.fn().mockResolvedValue({
+          data: { success: true, customer_id: "cus_1", product_id: "pro" },
+          error: null,
+        }),
+        setupPayment: vi.fn().mockResolvedValue({
+          data: { customer_id: "cus_1", url: "https://checkout.stripe.com/setup/cs_test" },
+          error: null,
+        }),
+        usage: vi.fn().mockResolvedValue({
+          data: { code: "ok", customer_id: "cus_1", feature_id: "messages" },
+          error: null,
+        }),
+      };
+    }
+
+    it("wraps top-level attach with product_id → plan_id and checkout_url", async () => {
+      const client = createMockPreV1Client();
+      instrumentAutumn(client as never);
+
+      await client.attach({
+        customer_id: "cus_1",
+        product_id: "pro",
+      } as never);
+
+      const span = findSpan("autumn.attach");
+      expect(span.attributes[SEMATTRS_BILLING_OPERATION]).toBe("attach");
+      expect(span.attributes[SEMATTRS_AUTUMN_RESOURCE]).toBe("attach");
+      expect(span.attributes[SEMATTRS_AUTUMN_CUSTOMER_ID]).toBe("cus_1");
+      expect(span.attributes[SEMATTRS_AUTUMN_PLAN_ID]).toBe("pro");
+      expect(span.attributes[SEMATTRS_AUTUMN_HAS_PAYMENT_URL]).toBe(true);
+      expect(span.attributes[SEMATTRS_AUTUMN_PAYMENT_URL]).toBeUndefined();
+      // product_ids array in response surfaces as plan_ids
+      expect(span.attributes[SEMATTRS_AUTUMN_PLAN_IDS]).toBe("pro");
+      expect(span.attributes[SEMATTRS_AUTUMN_PLAN_COUNT]).toBe(1);
+    });
+
+    it("emits checkout_url when captureCustomerData is enabled", async () => {
+      const client = createMockPreV1Client();
+      instrumentAutumn(client as never, { captureCustomerData: true });
+
+      await client.attach({ customer_id: "cus_1", product_id: "pro" } as never);
+
+      const span = findSpan("autumn.attach");
+      expect(span.attributes[SEMATTRS_AUTUMN_PAYMENT_URL]).toBe("https://checkout.stripe.com/pay/cs_test");
+    });
+
+    it("wraps top-level cancel and maps cancel_immediately to cancel_action", async () => {
+      const client = createMockPreV1Client();
+      instrumentAutumn(client as never);
+
+      await client.cancel({
+        customer_id: "cus_1",
+        product_id: "pro",
+        cancel_immediately: true,
+      } as never);
+
+      const span = findSpan("autumn.cancel");
+      expect(span.attributes[SEMATTRS_AUTUMN_CUSTOMER_ID]).toBe("cus_1");
+      expect(span.attributes[SEMATTRS_AUTUMN_PLAN_ID]).toBe("pro");
+      expect(span.attributes[SEMATTRS_AUTUMN_CANCEL_ACTION]).toBe("cancel_immediately");
+    });
+
+    it("wraps top-level cancel with cancel_immediately false as end_of_cycle", async () => {
+      const client = createMockPreV1Client();
+      instrumentAutumn(client as never);
+
+      await client.cancel({
+        customer_id: "cus_1",
+        product_id: "pro",
+        cancel_immediately: false,
+      } as never);
+
+      const span = findSpan("autumn.cancel");
+      expect(span.attributes[SEMATTRS_AUTUMN_CANCEL_ACTION]).toBe("cancel_end_of_cycle");
+    });
+
+    it("wraps top-level setupPayment", async () => {
+      const client = createMockPreV1Client();
+      instrumentAutumn(client as never);
+
+      await client.setupPayment({ customer_id: "cus_1" } as never);
+
+      const span = findSpan("autumn.setupPayment");
+      expect(span.attributes[SEMATTRS_AUTUMN_CUSTOMER_ID]).toBe("cus_1");
+      expect(span.attributes[SEMATTRS_AUTUMN_HAS_PAYMENT_URL]).toBe(true);
+    });
+
+    it("wraps top-level usage", async () => {
+      const client = createMockPreV1Client();
+      instrumentAutumn(client as never);
+
+      await client.usage({
+        customer_id: "cus_1",
+        feature_id: "messages",
+        value: 5,
+      } as never);
+
+      const span = findSpan("autumn.usage");
+      expect(span.attributes[SEMATTRS_AUTUMN_CUSTOMER_ID]).toBe("cus_1");
+      expect(span.attributes[SEMATTRS_AUTUMN_FEATURE_ID]).toBe("messages");
+      expect(span.attributes[SEMATTRS_AUTUMN_VALUE]).toBe(5);
+    });
+
+    it("unwraps Result<T,E> for check response annotation", async () => {
+      const client = createMockPreV1Client();
+      instrumentAutumn(client as never);
+
+      await client.check({ customer_id: "cus_1", feature_id: "messages" } as never);
+
+      const span = findSpan("autumn.check");
+      // request side reads snake_case
+      expect(span.attributes[SEMATTRS_AUTUMN_CUSTOMER_ID]).toBe("cus_1");
+      expect(span.attributes[SEMATTRS_AUTUMN_FEATURE_ID]).toBe("messages");
+      // response side reads through the Result wrapper
+      expect(span.attributes[SEMATTRS_AUTUMN_ALLOWED]).toBe(true);
+      expect(span.attributes[SEMATTRS_AUTUMN_BALANCE]).toBe(42);
+    });
+
+    it("does not crash when a pre-1.0 client lacks 1.x sub-resources", () => {
+      const client = createMockPreV1Client();
+      // Note: no billing, customers, entities, balances, events, plans, features, referrals
+      expect(() => instrumentAutumn(client as never)).not.toThrow();
+    });
+
+    it("remains idempotent on a pre-1.0-shaped client", async () => {
+      const client = createMockPreV1Client();
+      instrumentAutumn(client as never);
+      instrumentAutumn(client as never);
+
+      await client.attach({ customer_id: "cus_1", product_id: "pro" } as never);
+
+      expect(exporter.getFinishedSpans().length).toBe(1);
+    });
+  });
 });

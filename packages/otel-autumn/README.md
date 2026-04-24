@@ -15,7 +15,7 @@ yarn add @api-blitz/otel-autumn
 bun add @api-blitz/otel-autumn
 ```
 
-**Peer dependencies:** `@opentelemetry/api` >= 1.9.0, `autumn-js` >= 1.0.0 < 2.0.0
+**Peer dependencies:** `@opentelemetry/api` >= 1.9.0, `autumn-js` >= 0.0.70 < 2.0.0
 
 ## Quick start
 
@@ -36,6 +36,15 @@ await autumn.billing.attach({ customerId: "cus_123", planId: "pro" });
 ```
 
 `instrumentAutumn` wraps the Autumn client instance you already use — no configuration changes needed. Every SDK call creates a `CLIENT` span with operation-specific attributes, and the same client instance is returned so instrumentation is idempotent (calling it twice is a no-op).
+
+## Version compatibility
+
+Works across `autumn-js` from the last pre-1.0 releases (`>= 0.0.70`) through the current 1.x line.
+
+- **1.x** — full 36-method coverage across `check`, `track`, and every `billing.*` / `customers.*` / `entities.*` / `balances.*` / `events.*` / `plans.*` / `features.*` / `referrals.*` sub-resource.
+- **Pre-1.0 (0.0.70 – 0.0.80)** — `check` and `track`, plus the flat top-level billing methods that existed before the 1.x rename: `attach`, `cancel`, `setupPayment`, `usage`. Pre-1.0's `Result<T, E>` response envelope is unwrapped automatically so response-side span attributes are populated the same way as on 1.x. Pre-1.0's `product_id` / `product_ids` are surfaced under the `autumn.plan_id` / `autumn.plan_ids` attribute so dashboards stay consistent across versions.
+
+Methods that don't exist on the installed SDK version are skipped silently — instrumenting a pre-1.0 client doesn't fail because `autumn.billing` / `autumn.plans` aren't present.
 
 ## What gets traced
 
