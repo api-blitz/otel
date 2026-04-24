@@ -34,6 +34,12 @@ Versions follow semver. Pin with `^1.0.0` (caret) to get patch and minor updates
 
 ---
 
+## Examples
+
+Want to see what the traces actually look like before you install? Each package ships a playground that replays a realistic workload through the instrumentation and exports the resulting spans to a local Jaeger UI — no API keys, no database required. See **[EXAMPLES.md](./EXAMPLES.md)**.
+
+---
+
 ## Releasing (maintainers)
 
 Releases go out by hand from a local checkout. Per change:

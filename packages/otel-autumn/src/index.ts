@@ -176,6 +176,18 @@ function readEnabled(value: unknown): boolean | undefined {
   return undefined;
 }
 
+// Pre-1.0 autumn-js wraps responses as Result<T, E> = { data, error }. The
+// 1.x SDK returns bare payloads. Unwrap only the success branch so response
+// annotators see the same shape on both versions; 1.x values pass through
+// unchanged because they don't carry a `data`/`error` pair.
+function unwrapResult(value: unknown): unknown {
+  if (!isObject(value)) return value;
+  if ("data" in value && "error" in value && value.data != null) {
+    return value.data;
+  }
+  return value;
+}
+
 function extractPlanIds(plans: unknown): string[] | undefined {
   if (!Array.isArray(plans)) return undefined;
   const ids = plans
@@ -188,12 +200,13 @@ function extractPlanIds(plans: unknown): string[] | undefined {
 
 const annotateCheckRequest: Annotator = (span, req) => {
   if (!isObject(req)) return;
-  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId);
-  setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, req.featureId);
-  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId);
-  setIfNumber(span, SEMATTRS_AUTUMN_REQUIRED_BALANCE, req.requiredBalance);
-  setIfBoolean(span, SEMATTRS_AUTUMN_SEND_EVENT, req.sendEvent);
-  setIfBoolean(span, SEMATTRS_AUTUMN_WITH_PREVIEW, req.withPreview);
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId ?? req.customer_id);
+  setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, req.featureId ?? req.feature_id);
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId ?? req.entity_id);
+  setIfString(span, SEMATTRS_AUTUMN_PLAN_ID, req.planId ?? req.product_id);
+  setIfNumber(span, SEMATTRS_AUTUMN_REQUIRED_BALANCE, req.requiredBalance ?? req.required_balance);
+  setIfBoolean(span, SEMATTRS_AUTUMN_SEND_EVENT, req.sendEvent ?? req.send_event);
+  setIfBoolean(span, SEMATTRS_AUTUMN_WITH_PREVIEW, req.withPreview ?? req.with_preview);
   if (isObject(req.lock)) {
     setIfString(span, SEMATTRS_AUTUMN_LOCK, req.lock.lockId);
   }
@@ -202,12 +215,14 @@ const annotateCheckRequest: Annotator = (span, req) => {
 const annotateCheckResponse: Annotator = (span, res) => {
   if (!isObject(res)) return;
   setIfBoolean(span, SEMATTRS_AUTUMN_ALLOWED, res.allowed);
-  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId);
-  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, res.entityId);
-  setIfNumber(span, SEMATTRS_AUTUMN_REQUIRED_BALANCE, res.requiredBalance);
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId ?? res.customer_id);
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, res.entityId ?? res.entity_id);
+  setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, res.featureId ?? res.feature_id);
+  setIfString(span, SEMATTRS_AUTUMN_PLAN_ID, res.planId ?? res.product_id);
+  setIfNumber(span, SEMATTRS_AUTUMN_REQUIRED_BALANCE, res.requiredBalance ?? res.required_balance);
   if (isObject(res.balance)) {
     setIfNumber(span, SEMATTRS_AUTUMN_BALANCE, res.balance.remaining);
-    setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, res.balance.featureId);
+    setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, res.balance.featureId ?? res.balance.feature_id);
     if (isObject(res.balance.feature)) {
       setIfString(span, SEMATTRS_AUTUMN_FEATURE_NAME, res.balance.feature.name);
       setIfString(span, SEMATTRS_AUTUMN_FEATURE_TYPE, res.balance.feature.type);
@@ -215,7 +230,7 @@ const annotateCheckResponse: Annotator = (span, res) => {
   }
   if (isObject(res.flag)) {
     setIfString(span, SEMATTRS_AUTUMN_FLAG_ID, res.flag.id);
-    setIfString(span, SEMATTRS_AUTUMN_PLAN_ID, res.flag.planId);
+    setIfString(span, SEMATTRS_AUTUMN_PLAN_ID, res.flag.planId ?? res.flag.product_id);
   }
   span.setAttribute(SEMATTRS_AUTUMN_HAS_PREVIEW, Boolean(res.preview));
   if (isObject(res.preview)) {
@@ -225,10 +240,10 @@ const annotateCheckResponse: Annotator = (span, res) => {
 
 const annotateTrackRequest: Annotator = (span, req) => {
   if (!isObject(req)) return;
-  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId);
-  setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, req.featureId);
-  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId);
-  setIfString(span, SEMATTRS_AUTUMN_EVENT_NAME, req.eventName);
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId ?? req.customer_id);
+  setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, req.featureId ?? req.feature_id);
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId ?? req.entity_id);
+  setIfString(span, SEMATTRS_AUTUMN_EVENT_NAME, req.eventName ?? req.event_name);
   setIfNumber(span, SEMATTRS_AUTUMN_VALUE, req.value);
   if (isObject(req.lock)) {
     setIfString(span, SEMATTRS_AUTUMN_LOCK, req.lock.lockId);
@@ -237,13 +252,14 @@ const annotateTrackRequest: Annotator = (span, req) => {
 
 const annotateTrackResponse: Annotator = (span, res) => {
   if (!isObject(res)) return;
-  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId);
-  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, res.entityId);
-  setIfString(span, SEMATTRS_AUTUMN_EVENT_NAME, res.eventName);
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId ?? res.customer_id);
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, res.entityId ?? res.entity_id);
+  setIfString(span, SEMATTRS_AUTUMN_EVENT_NAME, res.eventName ?? res.event_name);
+  setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, res.featureId ?? res.feature_id);
   setIfNumber(span, SEMATTRS_AUTUMN_VALUE, res.value);
   if (isObject(res.balance)) {
     setIfNumber(span, SEMATTRS_AUTUMN_BALANCE, res.balance.remaining);
-    setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, res.balance.featureId);
+    setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, res.balance.featureId ?? res.balance.feature_id);
   }
   if (isObject(res.balances)) {
     span.setAttribute(SEMATTRS_AUTUMN_BALANCE_COUNT, Object.keys(res.balances).length);
@@ -254,9 +270,9 @@ const annotateTrackResponse: Annotator = (span, res) => {
 
 const annotateAttachRequest: Annotator = (span, req) => {
   if (!isObject(req)) return;
-  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId);
-  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId);
-  setIfString(span, SEMATTRS_AUTUMN_PLAN_ID, req.planId);
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId ?? req.customer_id);
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId ?? req.entity_id);
+  setIfString(span, SEMATTRS_AUTUMN_PLAN_ID, req.planId ?? req.product_id);
   setIfString(span, SEMATTRS_AUTUMN_SUBSCRIPTION_ID, req.subscriptionId);
   setIfBoolean(span, SEMATTRS_AUTUMN_INVOICE_MODE, readEnabled(req.invoiceMode));
   setIfString(span, SEMATTRS_AUTUMN_PRORATION_BEHAVIOR, req.prorationBehavior);
@@ -272,6 +288,13 @@ const annotateAttachRequest: Annotator = (span, req) => {
   }
   if (Array.isArray(req.discounts)) {
     span.setAttribute(SEMATTRS_AUTUMN_DISCOUNT_COUNT, req.discounts.length);
+  }
+  if (Array.isArray(req.product_ids)) {
+    const ids = req.product_ids.filter((id): id is string => typeof id === "string");
+    if (ids.length > 0) {
+      span.setAttribute(SEMATTRS_AUTUMN_PLAN_IDS, ids.join(","));
+      span.setAttribute(SEMATTRS_AUTUMN_PLAN_COUNT, ids.length);
+    }
   }
 };
 
@@ -312,27 +335,41 @@ const annotateUpdateRequest: Annotator = (span, req) => {
 
 const annotateBillingCustomerRequest: Annotator = (span, req) => {
   if (!isObject(req)) return;
-  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId);
-  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId);
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId ?? req.customer_id);
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId ?? req.entity_id);
 };
 
 const annotateAttachResponse: Annotator = (span, res, config) => {
   if (!isObject(res)) return;
-  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId);
-  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, res.entityId);
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId ?? res.customer_id);
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, res.entityId ?? res.entity_id);
   if (isObject(res.invoice)) {
     setIfString(span, SEMATTRS_AUTUMN_INVOICE_ID, res.invoice.stripeId);
     setIfString(span, SEMATTRS_AUTUMN_INVOICE_STATUS, res.invoice.status);
     setIfNumber(span, SEMATTRS_AUTUMN_TOTAL_AMOUNT, res.invoice.total);
     setIfString(span, SEMATTRS_AUTUMN_CURRENCY, res.invoice.currency);
   }
-  const hasUrl = typeof res.paymentUrl === "string" && res.paymentUrl.length > 0;
-  span.setAttribute(SEMATTRS_AUTUMN_HAS_PAYMENT_URL, hasUrl);
-  if (hasUrl && config.captureCustomerData) {
-    setIfString(span, SEMATTRS_AUTUMN_PAYMENT_URL, res.paymentUrl);
+  // 1.x uses `paymentUrl`; pre-1.0 uses `checkout_url`. Both map to the
+  // same payment-url semantics, gated behind captureCustomerData.
+  const paymentUrl = typeof res.paymentUrl === "string" && res.paymentUrl.length > 0
+    ? res.paymentUrl
+    : typeof res.checkout_url === "string" && res.checkout_url.length > 0
+      ? res.checkout_url
+      : undefined;
+  span.setAttribute(SEMATTRS_AUTUMN_HAS_PAYMENT_URL, Boolean(paymentUrl));
+  if (paymentUrl && config.captureCustomerData) {
+    span.setAttribute(SEMATTRS_AUTUMN_PAYMENT_URL, paymentUrl);
   }
   if (isObject(res.requiredAction)) {
     setIfString(span, SEMATTRS_AUTUMN_REQUIRED_ACTION, res.requiredAction.code);
+  }
+  // Pre-1.0 AttachResult carries an array of product_ids; surface as plan_ids.
+  if (Array.isArray(res.product_ids)) {
+    const ids = res.product_ids.filter((id): id is string => typeof id === "string");
+    if (ids.length > 0) {
+      span.setAttribute(SEMATTRS_AUTUMN_PLAN_IDS, ids.join(","));
+      span.setAttribute(SEMATTRS_AUTUMN_PLAN_COUNT, ids.length);
+    }
   }
 };
 
@@ -346,7 +383,7 @@ const annotatePreviewResponse: Annotator = (span, res) => {
 
 const annotatePortalResponse: Annotator = (span, res, config) => {
   if (!isObject(res)) return;
-  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId);
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId ?? res.customer_id);
   const url = typeof res.url === "string" ? res.url : undefined;
   span.setAttribute(SEMATTRS_AUTUMN_HAS_PORTAL_URL, Boolean(url));
   if (url && config.captureCustomerData) {
@@ -356,12 +393,47 @@ const annotatePortalResponse: Annotator = (span, res, config) => {
 
 const annotateSetupPaymentResponse: Annotator = (span, res, config) => {
   if (!isObject(res)) return;
-  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId);
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId ?? res.customer_id);
   const url = typeof res.url === "string" ? res.url : undefined;
   span.setAttribute(SEMATTRS_AUTUMN_HAS_PAYMENT_URL, Boolean(url));
   if (url && config.captureCustomerData) {
     span.setAttribute(SEMATTRS_AUTUMN_PAYMENT_URL, url);
   }
+};
+
+// ---------- Pre-1.0 flat-method annotators ----------
+
+const annotateCancelRequest: Annotator = (span, req) => {
+  if (!isObject(req)) return;
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId ?? req.customer_id);
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId ?? req.entity_id);
+  setIfString(span, SEMATTRS_AUTUMN_PLAN_ID, req.planId ?? req.product_id);
+  if (typeof req.cancel_immediately === "boolean") {
+    span.setAttribute(
+      SEMATTRS_AUTUMN_CANCEL_ACTION,
+      req.cancel_immediately ? "cancel_immediately" : "cancel_end_of_cycle",
+    );
+  }
+};
+
+const annotateCancelResponse: Annotator = (span, res) => {
+  if (!isObject(res)) return;
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId ?? res.customer_id);
+  setIfString(span, SEMATTRS_AUTUMN_PLAN_ID, res.planId ?? res.product_id);
+};
+
+const annotateUsageRequest: Annotator = (span, req) => {
+  if (!isObject(req)) return;
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId ?? req.customer_id);
+  setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, req.featureId ?? req.feature_id);
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId ?? req.entity_id);
+  setIfNumber(span, SEMATTRS_AUTUMN_VALUE, req.value);
+};
+
+const annotateUsageResponse: Annotator = (span, res) => {
+  if (!isObject(res)) return;
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId ?? res.customer_id);
+  setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, res.featureId ?? res.feature_id);
 };
 
 // ---------- Customers annotators ----------
@@ -565,7 +637,7 @@ function wrapAsyncMethod(
       const result = await context.with(activeContext, () => originalMethod.apply(this, args));
       if (config.captureResponseAttributes !== false && responseAnnotator) {
         try {
-          responseAnnotator(span, result, config);
+          responseAnnotator(span, unwrapResult(result), config);
         } catch {
           // swallow
         }
@@ -709,7 +781,7 @@ const SUB_RESOURCES: SubResource[] = [
 
 function wrapTopLevel(
   client: Autumn,
-  operationName: "check" | "track",
+  operationName: "check" | "track" | "attach" | "cancel" | "setupPayment" | "usage",
   tracer: Tracer,
   config: InstrumentAutumnConfig,
   requestAnnotator: Annotator,
@@ -760,6 +832,15 @@ export function instrumentAutumn<T extends Autumn>(
 
   wrapTopLevel(client, "check", tracer, config, annotateCheckRequest, annotateCheckResponse);
   wrapTopLevel(client, "track", tracer, config, annotateTrackRequest, annotateTrackResponse);
+
+  // Pre-1.0 autumn-js exposed billing flows as flat top-level methods. In 1.x
+  // these live under `autumn.billing.*` (or were replaced, e.g. `cancel` →
+  // `billing.update({ cancelAction })`), so the Autumn class doesn't expose
+  // them and each wrap is a no-op (wrapTopLevel checks typeof before wrapping).
+  wrapTopLevel(client, "attach", tracer, config, annotateAttachRequest, annotateAttachResponse);
+  wrapTopLevel(client, "cancel", tracer, config, annotateCancelRequest, annotateCancelResponse);
+  wrapTopLevel(client, "setupPayment", tracer, config, annotateBillingCustomerRequest, annotateSetupPaymentResponse);
+  wrapTopLevel(client, "usage", tracer, config, annotateUsageRequest, annotateUsageResponse);
 
   for (const sub of SUB_RESOURCES) {
     if (config[sub.flag] === false) continue;
