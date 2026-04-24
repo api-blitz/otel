@@ -1,7 +1,5 @@
 # The only Telemetry SDK you’ll ever need for TypeScript observability.
 
-[![Star History Chart](https://api.star-history.com/svg?repos=api-blitz/otel&type=Date&t=5)](https://www.star-history.com/#api-blitz/otel&Date)
-
 ## Vision
 
 Observability should give engineers a clear view of what their systems are doing and not feel like another setup you have to wrestle with.
@@ -65,12 +63,6 @@ pnpm -r publish --access public
 ---
 
 ## Coming soon
-
-- [Stripe](https://stripe.com/)
-- [AI SDK](https://ai-sdk.dev/)
-- [Mastra](https://mastra.ai/)
-- [Next.js Opentelemetry SDK](https://nextjs.org)
-- ...and anything you need next.
 
 Need support for something? [Open an issue](https://github.com/api-blitz/otel/issues) to request or ship a new integration.
 

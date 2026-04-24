@@ -2,10 +2,6 @@
 
 OpenTelemetry instrumentation for [Drizzle ORM](https://orm.drizzle.team/). Add distributed tracing to your database queries with a single line of code.
 
-![Drizzle ORM Trace Visualization](https://github.com/api-blitz/otel/blob/main/images/otel-drizzle-trace.png)
-
-_Visualize your database queries with detailed span information including operation type, SQL statements, and performance metrics._
-
 ## Installation
 
 ```bash
