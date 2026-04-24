@@ -3,10 +3,6 @@
 OpenTelemetry instrumentation for the [Autumn](https://useautumn.com) billing SDK (`autumn-js`).
 Capture spans for every Autumn API call — feature access checks, usage tracking, the full billing lifecycle, customer and entity management, balances, events, plans, features, and referrals — and enrich them with rich billing metadata.
 
-![Autumn Trace Visualization](https://github.com/api-blitz/otel/blob/main/images/otel-autumn-trace.png)
-
-_Visualize your billing operations with detailed span information including customer IDs, plan IDs, feature balances, payment flow state, and Stripe invoice data._
-
 ## Installation
 
 ```bash
