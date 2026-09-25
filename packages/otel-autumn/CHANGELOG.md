@@ -1,5 +1,20 @@
 # @api-blitz/otel-autumn
 
+## 1.2.0
+
+### Minor Changes
+
+- [#6](https://github.com/api-blitz/otel/pull/6) [`da4b7c4`](https://github.com/api-blitz/otel/commit/da4b7c4fd029dbfbdd8710b3e67be7c57c490f2f) Thanks [@ibadus](https://github.com/ibadus)! - Support the latest `autumn-js` (1.3.x, tested against 1.3.19) while keeping pre-1.0 and 1.2.x behavior unchanged.
+
+  - Wrap the new top-level `trackTokens` (model id + token counts) and `batchTrack` (batch size, uniform customer/feature) methods.
+  - Wrap the new billing flows: `billing.createSchedule`, `billing.multiUpdate`, `billing.previewMultiUpdate`, `billing.import`.
+  - Wrap `customers.get`, `customers.advanceTestClock`, `entities.list`, and the referral-program CRUD (`referrals.createProgram` / `listPrograms` / `getProgram` / `updateProgram` / `deleteProgram`).
+  - Instrument the new `invoices.*`, `licenses.*`, `rewards.*`, `keys.*`, `logs.*`, `platform.*`, and `sandboxes.*` sub-resources, each with its own `instrument*` opt-out flag (default on). Credentials in keys/platform/sandbox responses and log search queries are never recorded; reward promo codes are gated behind `captureCustomerData`.
+  - Map 1.3's cursor pagination (`nextCursor`) to `autumn.has_more`, and emit `autumn.result_count` on list operations.
+  - Record `overageBehavior`, `async`, and deduction counts on `track`.
+  - Read positional customer ids on pre-1.0 `customers.*` calls (e.g. `customers.get("cus_123")`).
+  - Methods and sub-resources missing from the installed `autumn-js` version are still skipped silently; the `autumn-js` peer range is unchanged (`>=0.0.70 <2.0.0`).
+
 ## 1.1.0
 
 ### Minor Changes
