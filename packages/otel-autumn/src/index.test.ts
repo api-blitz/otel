@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import {
+  AlwaysOffSampler,
   BasicTracerProvider,
   InMemorySpanExporter,
+  SamplingDecision,
   SimpleSpanProcessor,
+  type Sampler,
 } from "@opentelemetry/sdk-trace-base";
 import { Autumn, HTTPClient } from "autumn-js";
 import {
@@ -582,6 +585,68 @@ describe("@api-blitz/otel-autumn", () => {
       expect(spans.length).toBe(3);
       expect(spans.filter((s) => s.name === "autumn.check").length).toBe(2);
       expect(spans.filter((s) => s.name === "autumn.track").length).toBe(1);
+    });
+  });
+
+  describe("sampling", () => {
+    function useProvider(sampler: Sampler): BasicTracerProvider {
+      trace.disable();
+      const sampled = new BasicTracerProvider({
+        sampler,
+        spanProcessors: [new SimpleSpanProcessor(exporter)],
+      });
+      trace.setGlobalTracerProvider(sampled);
+      return sampled;
+    }
+
+    it("hands the base attributes to the sampler", async () => {
+      const seen: Array<Record<string, unknown>> = [];
+      const sampled = useProvider({
+        shouldSample: (_context, _traceId, _name, _kind, attributes) => {
+          seen.push({ ...attributes });
+          return { decision: SamplingDecision.RECORD_AND_SAMPLED };
+        },
+        toString: () => "CapturingSampler",
+      });
+      const client = createMockAutumnClient();
+      instrumentAutumn(client as never);
+
+      await client.billing.attach({ customerId: "cus_1", planId: "pro" } as never);
+
+      expect(seen).toEqual([
+        {
+          [SEMATTRS_BILLING_SYSTEM]: "autumn",
+          [SEMATTRS_BILLING_OPERATION]: "billing.attach",
+          [SEMATTRS_AUTUMN_RESOURCE]: "billing",
+          [SEMATTRS_AUTUMN_TARGET]: "billing.attach",
+        },
+      ]);
+      expect(findSpan("autumn.billing.attach").attributes[SEMATTRS_AUTUMN_PLAN_ID]).toBe("pro");
+      await sampled.shutdown();
+    });
+
+    it("does not read request or response payloads for unsampled spans", async () => {
+      const sampled = useProvider(new AlwaysOffSampler());
+      let reads = 0;
+      const counted = <T extends object>(value: T): T =>
+        new Proxy(value, {
+          get(target, key, receiver) {
+            // Promise resolution probes `then`; anything else is an annotator reading the payload.
+            if (key !== "then") reads++;
+            return Reflect.get(target, key, receiver);
+          },
+        });
+      const response = counted({ allowed: true, customerId: "cus_1" });
+      const client = createMockAutumnClient();
+      client.check.mockResolvedValue(response);
+      instrumentAutumn(client as never);
+
+      const result = await client.check(counted({ customerId: "cus_1", featureId: "messages" }) as never);
+
+      expect(result).toBe(response);
+      expect(reads).toBe(0);
+      expect(exporter.getFinishedSpans()).toHaveLength(0);
+      await sampled.shutdown();
     });
   });
 
