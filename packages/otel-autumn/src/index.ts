@@ -48,6 +48,20 @@ export const SEMATTRS_AUTUMN_HAS_PREVIEW = "autumn.has_preview" as const;
 export const SEMATTRS_AUTUMN_EVENT_NAME = "autumn.event_name" as const;
 export const SEMATTRS_AUTUMN_VALUE = "autumn.value" as const;
 export const SEMATTRS_AUTUMN_BALANCE_COUNT = "autumn.balance_count" as const;
+export const SEMATTRS_AUTUMN_OVERAGE_BEHAVIOR = "autumn.overage_behavior" as const;
+export const SEMATTRS_AUTUMN_ASYNC = "autumn.async" as const;
+export const SEMATTRS_AUTUMN_DEDUCTION_COUNT = "autumn.deduction_count" as const;
+export const SEMATTRS_AUTUMN_BATCH_SIZE = "autumn.batch_size" as const;
+
+// Token-tracking attributes (`trackTokens`, autumn-js >= 1.2.x)
+export const SEMATTRS_AUTUMN_MODEL_ID = "autumn.model_id" as const;
+export const SEMATTRS_AUTUMN_INPUT_TOKENS = "autumn.input_tokens" as const;
+export const SEMATTRS_AUTUMN_OUTPUT_TOKENS = "autumn.output_tokens" as const;
+export const SEMATTRS_AUTUMN_CACHE_READ_TOKENS = "autumn.cache_read_tokens" as const;
+export const SEMATTRS_AUTUMN_CACHE_WRITE_TOKENS = "autumn.cache_write_tokens" as const;
+export const SEMATTRS_AUTUMN_REASONING_TOKENS = "autumn.reasoning_tokens" as const;
+export const SEMATTRS_AUTUMN_AUDIO_INPUT_TOKENS = "autumn.audio_input_tokens" as const;
+export const SEMATTRS_AUTUMN_AUDIO_OUTPUT_TOKENS = "autumn.audio_output_tokens" as const;
 
 // Billing attributes
 export const SEMATTRS_AUTUMN_INVOICE = "autumn.invoice" as const;
@@ -74,15 +88,54 @@ export const SEMATTRS_AUTUMN_DISCOUNT_COUNT = "autumn.discount_count" as const;
 export const SEMATTRS_AUTUMN_NO_BILLING_CHANGES = "autumn.no_billing_changes" as const;
 export const SEMATTRS_AUTUMN_NEW_BILLING_SUBSCRIPTION = "autumn.new_billing_subscription" as const;
 export const SEMATTRS_AUTUMN_PLAN_VERSION = "autumn.plan_version" as const;
+export const SEMATTRS_AUTUMN_BILLING_BEHAVIOR = "autumn.billing_behavior" as const;
+export const SEMATTRS_AUTUMN_SCHEDULE_ID = "autumn.schedule_id" as const;
+export const SEMATTRS_AUTUMN_SCHEDULE_STATUS = "autumn.schedule_status" as const;
+export const SEMATTRS_AUTUMN_PHASE_COUNT = "autumn.phase_count" as const;
+export const SEMATTRS_AUTUMN_UPDATE_COUNT = "autumn.update_count" as const;
+export const SEMATTRS_AUTUMN_BILLABLE_COUNT = "autumn.billable_count" as const;
+export const SEMATTRS_AUTUMN_IMPORT_COUNT = "autumn.import_count" as const;
+export const SEMATTRS_AUTUMN_DRY_RUN = "autumn.dry_run" as const;
+
+// Invoice attributes (`invoices.*`, autumn-js >= 1.2.x). `autumn.invoice_id`
+// stays the processor (Stripe) id for parity with `billing.*` spans; the
+// Autumn-side id that `invoices.pay/void/reissue` take lives here instead.
+export const SEMATTRS_AUTUMN_INVOICE_AUTUMN_ID = "autumn.invoice_autumn_id" as const;
+export const SEMATTRS_AUTUMN_IS_PREVIEW = "autumn.is_preview" as const;
 
 // Events attributes
 export const SEMATTRS_AUTUMN_EVENT_COUNT = "autumn.event_count" as const;
 export const SEMATTRS_AUTUMN_PERIOD_COUNT = "autumn.period_count" as const;
 export const SEMATTRS_AUTUMN_AGGREGATE_RANGE = "autumn.aggregate_range" as const;
 
+// List attributes
+export const SEMATTRS_AUTUMN_RESULT_COUNT = "autumn.result_count" as const;
+export const SEMATTRS_AUTUMN_HAS_MORE = "autumn.has_more" as const;
+
+// Customer attributes
+export const SEMATTRS_AUTUMN_FROZEN_TIME = "autumn.frozen_time" as const;
+export const SEMATTRS_AUTUMN_TEST_CLOCK_STATUS = "autumn.test_clock_status" as const;
+
 // Referral attributes
 export const SEMATTRS_AUTUMN_REFERRAL_PROGRAM_ID = "autumn.referral_program_id" as const;
 export const SEMATTRS_AUTUMN_REFERRAL_CODE = "autumn.referral_code" as const;
+
+// Reward attributes (`rewards.*`, autumn-js >= 1.2.x)
+export const SEMATTRS_AUTUMN_REWARD_ID = "autumn.reward_id" as const;
+export const SEMATTRS_AUTUMN_REWARD_TYPE = "autumn.reward_type" as const;
+export const SEMATTRS_AUTUMN_REWARD_CODE = "autumn.reward_code" as const;
+export const SEMATTRS_AUTUMN_ENTITLEMENT_COUNT = "autumn.entitlement_count" as const;
+
+// License attributes (`licenses.*`, autumn-js >= 1.2.x)
+export const SEMATTRS_AUTUMN_ENTITY_COUNT = "autumn.entity_count" as const;
+export const SEMATTRS_AUTUMN_SUCCESS = "autumn.success" as const;
+
+// Platform / sandbox attributes (autumn-js >= 1.2.x)
+export const SEMATTRS_AUTUMN_ORGANIZATION_SLUG = "autumn.organization_slug" as const;
+export const SEMATTRS_AUTUMN_ENV = "autumn.env" as const;
+export const SEMATTRS_AUTUMN_CONNECTED = "autumn.connected" as const;
+export const SEMATTRS_AUTUMN_SANDBOX_ID = "autumn.sandbox_id" as const;
+export const SEMATTRS_AUTUMN_SANDBOX_NAME = "autumn.sandbox_name" as const;
 
 /**
  * Configuration for Autumn instrumentation.
@@ -122,6 +175,20 @@ export interface InstrumentAutumnConfig {
   instrumentFeatures?: boolean;
   /** Instrument `autumn.referrals.*`. @default true */
   instrumentReferrals?: boolean;
+  /** Instrument `autumn.invoices.*` (autumn-js >= 1.2.x). @default true */
+  instrumentInvoices?: boolean;
+  /** Instrument `autumn.licenses.*` (autumn-js >= 1.2.x). @default true */
+  instrumentLicenses?: boolean;
+  /** Instrument `autumn.rewards.*` (autumn-js >= 1.2.x). @default true */
+  instrumentRewards?: boolean;
+  /** Instrument `autumn.keys.*` (autumn-js >= 1.2.x). @default true */
+  instrumentKeys?: boolean;
+  /** Instrument `autumn.logs.*` (autumn-js >= 1.3.x). @default true */
+  instrumentLogs?: boolean;
+  /** Instrument `autumn.platform.*` (autumn-js >= 1.2.x). @default true */
+  instrumentPlatform?: boolean;
+  /** Instrument `autumn.sandboxes.*` (autumn-js >= 1.3.x). @default true */
+  instrumentSandboxes?: boolean;
 }
 
 /**
@@ -196,6 +263,27 @@ function extractPlanIds(plans: unknown): string[] | undefined {
   return ids.length > 0 ? ids : undefined;
 }
 
+function setPlanIds(span: Span, ids: string[] | undefined): void {
+  if (!ids || ids.length === 0) return;
+  span.setAttribute(SEMATTRS_AUTUMN_PLAN_IDS, ids.join(","));
+  span.setAttribute(SEMATTRS_AUTUMN_PLAN_COUNT, ids.length);
+}
+
+function setIfArrayLength(span: Span, key: string, value: unknown): void {
+  if (Array.isArray(value)) {
+    span.setAttribute(key, value.length);
+  }
+}
+
+// Pagination moved from offset (`hasMore`, pre-1.0 `has_more`) to cursors
+// (`nextCursor`) in autumn-js 1.3; derive the same boolean from any of them.
+function readHasMore(res: AnyRecord): boolean | undefined {
+  if (typeof res.hasMore === "boolean") return res.hasMore;
+  if (typeof res.has_more === "boolean") return res.has_more;
+  if ("nextCursor" in res) return typeof res.nextCursor === "string" && res.nextCursor.length > 0;
+  return undefined;
+}
+
 // ---------- Top-level annotators ----------
 
 const annotateCheckRequest: Annotator = (span, req) => {
@@ -245,6 +333,8 @@ const annotateTrackRequest: Annotator = (span, req) => {
   setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId ?? req.entity_id);
   setIfString(span, SEMATTRS_AUTUMN_EVENT_NAME, req.eventName ?? req.event_name);
   setIfNumber(span, SEMATTRS_AUTUMN_VALUE, req.value);
+  setIfString(span, SEMATTRS_AUTUMN_OVERAGE_BEHAVIOR, req.overageBehavior);
+  setIfBoolean(span, SEMATTRS_AUTUMN_ASYNC, req.async);
   if (isObject(req.lock)) {
     setIfString(span, SEMATTRS_AUTUMN_LOCK, req.lock.lockId);
   }
@@ -264,6 +354,44 @@ const annotateTrackResponse: Annotator = (span, res) => {
   if (isObject(res.balances)) {
     span.setAttribute(SEMATTRS_AUTUMN_BALANCE_COUNT, Object.keys(res.balances).length);
   }
+  setIfArrayLength(span, SEMATTRS_AUTUMN_DEDUCTION_COUNT, res.deductions);
+};
+
+const annotateTrackTokensRequest: Annotator = (span, req) => {
+  if (!isObject(req)) return;
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId);
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId);
+  setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, req.featureId);
+  setIfString(span, SEMATTRS_AUTUMN_MODEL_ID, req.modelId);
+  setIfNumber(span, SEMATTRS_AUTUMN_INPUT_TOKENS, req.inputTokens);
+  setIfNumber(span, SEMATTRS_AUTUMN_OUTPUT_TOKENS, req.outputTokens);
+  setIfNumber(span, SEMATTRS_AUTUMN_CACHE_READ_TOKENS, req.cacheReadTokens);
+  setIfNumber(span, SEMATTRS_AUTUMN_CACHE_WRITE_TOKENS, req.cacheWriteTokens);
+  setIfNumber(span, SEMATTRS_AUTUMN_REASONING_TOKENS, req.reasoningTokens);
+  setIfNumber(span, SEMATTRS_AUTUMN_AUDIO_INPUT_TOKENS, req.audioInputTokens);
+  setIfNumber(span, SEMATTRS_AUTUMN_AUDIO_OUTPUT_TOKENS, req.audioOutputTokens);
+  setIfString(span, SEMATTRS_AUTUMN_OVERAGE_BEHAVIOR, req.overageBehavior);
+  setIfBoolean(span, SEMATTRS_AUTUMN_ASYNC, req.async);
+};
+
+// batchTrack takes an array of track payloads. Identity attributes are only
+// emitted when every event in the batch shares the same value.
+const annotateBatchTrackRequest: Annotator = (span, req) => {
+  if (!Array.isArray(req)) return;
+  span.setAttribute(SEMATTRS_AUTUMN_BATCH_SIZE, req.length);
+  const uniform = (key: string): unknown => {
+    const values = new Set(req.map((event) => (isObject(event) ? event[key] : undefined)));
+    return values.size === 1 ? [...values][0] : undefined;
+  };
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, uniform("customerId"));
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, uniform("entityId"));
+  setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, uniform("featureId"));
+  setIfString(span, SEMATTRS_AUTUMN_EVENT_NAME, uniform("eventName"));
+};
+
+const annotateSuccessResponse: Annotator = (span, res) => {
+  if (!isObject(res)) return;
+  setIfBoolean(span, SEMATTRS_AUTUMN_SUCCESS, res.success);
 };
 
 // ---------- Billing annotators ----------
@@ -305,6 +433,7 @@ const annotateMultiAttachRequest: Annotator = (span, req) => {
   setIfBoolean(span, SEMATTRS_AUTUMN_INVOICE_MODE, readEnabled(req.invoiceMode));
   setIfString(span, SEMATTRS_AUTUMN_REDIRECT_MODE, req.redirectMode);
   setIfBoolean(span, SEMATTRS_AUTUMN_NEW_BILLING_SUBSCRIPTION, req.newBillingSubscription);
+  setIfString(span, SEMATTRS_AUTUMN_BILLING_BEHAVIOR, req.billingBehavior);
   const ids = extractPlanIds(req.plans);
   if (ids) {
     span.setAttribute(SEMATTRS_AUTUMN_PLAN_IDS, ids.join(","));
@@ -331,6 +460,44 @@ const annotateUpdateRequest: Annotator = (span, req) => {
   if (Array.isArray(req.featureQuantities)) {
     span.setAttribute(SEMATTRS_AUTUMN_FEATURE_QUANTITIES_COUNT, req.featureQuantities.length);
   }
+};
+
+const annotateCreateScheduleRequest: Annotator = (span, req) => {
+  if (!isObject(req)) return;
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId);
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId);
+  setIfBoolean(span, SEMATTRS_AUTUMN_INVOICE_MODE, readEnabled(req.invoiceMode));
+  setIfString(span, SEMATTRS_AUTUMN_REDIRECT_MODE, req.redirectMode);
+  setIfString(span, SEMATTRS_AUTUMN_BILLING_BEHAVIOR, req.billingBehavior);
+  setIfBoolean(span, SEMATTRS_AUTUMN_NO_BILLING_CHANGES, req.noBillingChanges);
+  setIfArrayLength(span, SEMATTRS_AUTUMN_DISCOUNT_COUNT, req.discounts);
+  if (Array.isArray(req.phases)) {
+    span.setAttribute(SEMATTRS_AUTUMN_PHASE_COUNT, req.phases.length);
+    const phasePlans = req.phases.flatMap((phase) => (isObject(phase) && Array.isArray(phase.plans) ? phase.plans : []));
+    const ids = extractPlanIds(phasePlans);
+    setPlanIds(span, ids ? [...new Set(ids)] : undefined);
+  }
+};
+
+const annotateMultiUpdateRequest: Annotator = (span, req) => {
+  if (!isObject(req)) return;
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId);
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId);
+  setIfArrayLength(span, SEMATTRS_AUTUMN_UPDATE_COUNT, req.updates);
+  setPlanIds(span, extractPlanIds(req.updates));
+};
+
+const annotateImportRequest: Annotator = (span, req) => {
+  if (!isObject(req)) return;
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId);
+  setIfArrayLength(span, SEMATTRS_AUTUMN_BILLABLE_COUNT, req.billables);
+  setIfBoolean(span, SEMATTRS_AUTUMN_DRY_RUN, req.dryRun);
+};
+
+const annotateImportResponse: Annotator = (span, res) => {
+  if (!isObject(res)) return;
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId);
+  setIfArrayLength(span, SEMATTRS_AUTUMN_IMPORT_COUNT, res.flashed);
 };
 
 const annotateBillingCustomerRequest: Annotator = (span, req) => {
@@ -371,6 +538,14 @@ const annotateAttachResponse: Annotator = (span, res, config) => {
       span.setAttribute(SEMATTRS_AUTUMN_PLAN_COUNT, ids.length);
     }
   }
+};
+
+const annotateCreateScheduleResponse: Annotator = (span, res, config) => {
+  annotateAttachResponse(span, res, config);
+  if (!isObject(res)) return;
+  setIfString(span, SEMATTRS_AUTUMN_SCHEDULE_ID, res.scheduleId);
+  setIfString(span, SEMATTRS_AUTUMN_SCHEDULE_STATUS, res.status);
+  setIfArrayLength(span, SEMATTRS_AUTUMN_PHASE_COUNT, res.phases);
 };
 
 const annotatePreviewResponse: Annotator = (span, res) => {
@@ -439,6 +614,11 @@ const annotateUsageResponse: Annotator = (span, res) => {
 // ---------- Customers annotators ----------
 
 const annotateCustomerRequest: Annotator = (span, req) => {
+  // Pre-1.0 customer methods take the id positionally, e.g. `customers.get("cus_1")`.
+  if (typeof req === "string") {
+    setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req);
+    return;
+  }
   if (!isObject(req)) return;
   setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.id ?? req.customerId);
 };
@@ -446,6 +626,19 @@ const annotateCustomerRequest: Annotator = (span, req) => {
 const annotateCustomerResponse: Annotator = (span, res) => {
   if (!isObject(res)) return;
   setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.id ?? res.customerId);
+};
+
+const annotateAdvanceTestClockRequest: Annotator = (span, req) => {
+  if (!isObject(req)) return;
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId);
+  setIfNumber(span, SEMATTRS_AUTUMN_FROZEN_TIME, req.frozenTime);
+};
+
+const annotateAdvanceTestClockResponse: Annotator = (span, res) => {
+  if (!isObject(res)) return;
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId);
+  setIfNumber(span, SEMATTRS_AUTUMN_FROZEN_TIME, res.frozenTime);
+  setIfString(span, SEMATTRS_AUTUMN_TEST_CLOCK_STATUS, res.status);
 };
 
 // ---------- Entities annotators ----------
@@ -479,6 +672,7 @@ const annotateBalanceResponse: Annotator = (span, res) => {
   if (!isObject(res)) return;
   setIfString(span, SEMATTRS_AUTUMN_FEATURE_ID, res.featureId);
   setIfNumber(span, SEMATTRS_AUTUMN_BALANCE, res.remaining ?? res.balance);
+  setIfBoolean(span, SEMATTRS_AUTUMN_SUCCESS, res.success);
 };
 
 // ---------- Events annotators ----------
@@ -501,7 +695,7 @@ const annotateEventsListResponse: Annotator = (span, res) => {
   if (Array.isArray(res.list)) {
     span.setAttribute(SEMATTRS_AUTUMN_EVENT_COUNT, res.list.length);
   }
-  setIfBoolean(span, "autumn.has_more", res.hasMore);
+  setIfBoolean(span, SEMATTRS_AUTUMN_HAS_MORE, readHasMore(res));
 };
 
 const annotateEventsAggregateResponse: Annotator = (span, res) => {
@@ -570,6 +764,134 @@ const annotateReferralResponse: Annotator = (span, res) => {
   if (!isObject(res)) return;
   setIfString(span, SEMATTRS_AUTUMN_REFERRAL_CODE, res.code);
   setIfString(span, SEMATTRS_AUTUMN_REFERRAL_PROGRAM_ID, res.programId);
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, res.customerId);
+  setIfString(span, SEMATTRS_AUTUMN_REWARD_ID, res.rewardId);
+};
+
+// `createProgram` takes the new program's id as `id`; get/update/delete take
+// `referralProgramId`.
+const annotateReferralProgramRequest: Annotator = (span, req) => {
+  if (!isObject(req)) return;
+  setIfString(span, SEMATTRS_AUTUMN_REFERRAL_PROGRAM_ID, req.referralProgramId ?? req.id);
+  setIfString(span, SEMATTRS_AUTUMN_REWARD_ID, req.rewardId);
+};
+
+const annotateReferralProgramResponse: Annotator = (span, res) => {
+  if (!isObject(res)) return;
+  setIfString(span, SEMATTRS_AUTUMN_REFERRAL_PROGRAM_ID, res.id);
+  setIfString(span, SEMATTRS_AUTUMN_REWARD_ID, res.rewardId);
+};
+
+// ---------- Invoices annotators ----------
+
+const annotateInvoiceRequest: Annotator = (span, req) => {
+  if (!isObject(req)) return;
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId);
+  setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId);
+  setIfString(span, SEMATTRS_AUTUMN_INVOICE_AUTUMN_ID, req.invoiceId);
+  setIfBoolean(span, SEMATTRS_AUTUMN_IS_PREVIEW, req.preview);
+  setPlanIds(span, extractPlanIds(req.plans));
+};
+
+const annotateInvoiceResponse: Annotator = (span, res) => {
+  if (!isObject(res)) return;
+  if (isObject(res.invoice)) {
+    const invoice = res.invoice;
+    setIfString(span, SEMATTRS_AUTUMN_INVOICE_AUTUMN_ID, invoice.id);
+    setIfString(span, SEMATTRS_AUTUMN_INVOICE_ID, invoice.stripeId);
+    setIfString(span, SEMATTRS_AUTUMN_INVOICE_STATUS, invoice.status);
+    setIfNumber(span, SEMATTRS_AUTUMN_TOTAL_AMOUNT, invoice.total);
+    setIfString(span, SEMATTRS_AUTUMN_CURRENCY, invoice.currency);
+    setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, invoice.customerId);
+    setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, invoice.entityId);
+    if (Array.isArray(invoice.planIds)) {
+      setPlanIds(span, invoice.planIds.filter((id): id is string => typeof id === "string"));
+    }
+  } else if (isObject(res.preview)) {
+    // `create`/`reissue` with `preview: true` return totals without an invoice.
+    setIfNumber(span, SEMATTRS_AUTUMN_TOTAL_AMOUNT, res.preview.total);
+    setIfString(span, SEMATTRS_AUTUMN_CURRENCY, res.preview.currency);
+  }
+};
+
+const annotateInsertInvoicesResponse: Annotator = (span, res) => {
+  if (!isObject(res)) return;
+  setIfArrayLength(span, SEMATTRS_AUTUMN_RESULT_COUNT, res.invoices);
+};
+
+// ---------- Licenses annotators ----------
+
+const annotateLicenseRequest: Annotator = (span, req) => {
+  if (!isObject(req)) return;
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId);
+  setIfString(span, SEMATTRS_AUTUMN_PLAN_ID, req.planId ?? req.licensePlanId);
+  setIfArrayLength(span, SEMATTRS_AUTUMN_ENTITY_COUNT, req.entities ?? req.entityIds);
+};
+
+// ---------- Rewards annotators ----------
+
+function readRewardType(value: AnyRecord): string | undefined {
+  if (isObject(value.coupon)) return "coupon";
+  if (isObject(value.featureGrant)) return "feature_grant";
+  return undefined;
+}
+
+const annotateRewardRequest: Annotator = (span, req, config) => {
+  if (!isObject(req)) return;
+  setIfString(span, SEMATTRS_AUTUMN_REWARD_ID, req.rewardId);
+  setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, req.customerId);
+  setIfString(span, SEMATTRS_AUTUMN_REWARD_TYPE, readRewardType(req));
+  // Promo codes are redeemable by anyone holding them.
+  if (config.captureCustomerData) {
+    setIfString(span, SEMATTRS_AUTUMN_REWARD_CODE, req.code);
+  }
+};
+
+const annotateRewardResponse: Annotator = (span, res) => {
+  if (!isObject(res)) return;
+  const reward = isObject(res.coupon) ? res.coupon : isObject(res.featureGrant) ? res.featureGrant : undefined;
+  setIfString(span, SEMATTRS_AUTUMN_REWARD_ID, reward?.id ?? res.rewardId);
+  setIfString(span, SEMATTRS_AUTUMN_REWARD_TYPE, readRewardType(res));
+  setIfArrayLength(span, SEMATTRS_AUTUMN_ENTITLEMENT_COUNT, res.entitlementsGranted);
+  setIfBoolean(span, SEMATTRS_AUTUMN_SUCCESS, res.success);
+};
+
+const annotateRewardListResponse: Annotator = (span, res) => {
+  if (!isObject(res)) return;
+  const coupons = Array.isArray(res.coupons) ? res.coupons.length : 0;
+  const grants = Array.isArray(res.featureGrants) ? res.featureGrants.length : 0;
+  span.setAttribute(SEMATTRS_AUTUMN_RESULT_COUNT, coupons + grants);
+};
+
+// ---------- Platform / sandboxes annotators ----------
+// Keys, platform and sandbox responses carry credentials (access/refresh
+// tokens, OAuth tokens/URLs, sandbox secret keys). Only the allow-listed
+// fields below are ever read from them.
+
+const annotatePlatformRequest: Annotator = (span, req) => {
+  if (!isObject(req)) return;
+  setIfString(span, SEMATTRS_AUTUMN_ORGANIZATION_SLUG, req.organizationSlug);
+  setIfString(span, SEMATTRS_AUTUMN_ENV, req.env);
+};
+
+const annotatePlatformResponse: Annotator = (span, res) => {
+  if (!isObject(res)) return;
+  setIfBoolean(span, SEMATTRS_AUTUMN_CONNECTED, res.connected);
+  setIfBoolean(span, SEMATTRS_AUTUMN_SUCCESS, res.success);
+  setIfArrayLength(span, SEMATTRS_AUTUMN_RESULT_COUNT, res.results);
+};
+
+const annotateSandboxRequest: Annotator = (span, req) => {
+  if (!isObject(req)) return;
+  setIfString(span, SEMATTRS_AUTUMN_SANDBOX_ID, req.id);
+  setIfString(span, SEMATTRS_AUTUMN_SANDBOX_NAME, req.name);
+};
+
+const annotateSandboxResponse: Annotator = (span, res) => {
+  if (!isObject(res)) return;
+  setIfString(span, SEMATTRS_AUTUMN_SANDBOX_ID, res.id);
+  setIfString(span, SEMATTRS_AUTUMN_SANDBOX_NAME, res.name);
+  setIfBoolean(span, SEMATTRS_AUTUMN_SUCCESS, res.success);
 };
 
 // ---------- Generic fallbacks ----------
@@ -580,11 +902,10 @@ const annotateGenericIdRequest: Annotator = (span, req) => {
   setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, req.entityId);
 };
 
-const annotateGenericIdResponse: Annotator = (span, res) => {
+const annotateListResponse: Annotator = (span, res) => {
   if (!isObject(res)) return;
-  if (typeof res.id === "string") {
-    span.setAttribute("autumn.id", res.id);
-  }
+  setIfArrayLength(span, SEMATTRS_AUTUMN_RESULT_COUNT, res.list);
+  setIfBoolean(span, SEMATTRS_AUTUMN_HAS_MORE, readHasMore(res));
 };
 
 // ---------- Wrapping plumbing ----------
@@ -689,8 +1010,12 @@ const BILLING_SPEC: ResourceSpec = {
     { name: "previewMultiAttach", requestAnnotator: annotateMultiAttachRequest, responseAnnotator: annotatePreviewResponse },
     { name: "update", requestAnnotator: annotateUpdateRequest, responseAnnotator: annotateAttachResponse },
     { name: "previewUpdate", requestAnnotator: annotateUpdateRequest, responseAnnotator: annotatePreviewResponse },
+    { name: "multiUpdate", requestAnnotator: annotateMultiUpdateRequest, responseAnnotator: annotateAttachResponse },
+    { name: "previewMultiUpdate", requestAnnotator: annotateMultiUpdateRequest, responseAnnotator: annotatePreviewResponse },
+    { name: "createSchedule", requestAnnotator: annotateCreateScheduleRequest, responseAnnotator: annotateCreateScheduleResponse },
     { name: "openCustomerPortal", requestAnnotator: annotateBillingCustomerRequest, responseAnnotator: annotatePortalResponse },
     { name: "setupPayment", requestAnnotator: annotateBillingCustomerRequest, responseAnnotator: annotateSetupPaymentResponse },
+    { name: "import", requestAnnotator: annotateImportRequest, responseAnnotator: annotateImportResponse },
   ],
 };
 
@@ -698,9 +1023,11 @@ const CUSTOMERS_SPEC: ResourceSpec = {
   name: "customers",
   methods: [
     { name: "getOrCreate", requestAnnotator: annotateCustomerRequest, responseAnnotator: annotateCustomerResponse },
-    { name: "list", responseAnnotator: annotateGenericIdResponse },
+    { name: "get", requestAnnotator: annotateCustomerRequest, responseAnnotator: annotateCustomerResponse },
+    { name: "list", responseAnnotator: annotateListResponse },
     { name: "update", requestAnnotator: annotateCustomerRequest, responseAnnotator: annotateCustomerResponse },
     { name: "delete", requestAnnotator: annotateCustomerRequest, responseAnnotator: annotateCustomerResponse },
+    { name: "advanceTestClock", requestAnnotator: annotateAdvanceTestClockRequest, responseAnnotator: annotateAdvanceTestClockResponse },
   ],
 };
 
@@ -709,6 +1036,7 @@ const ENTITIES_SPEC: ResourceSpec = {
   methods: [
     { name: "create", requestAnnotator: annotateEntityRequest, responseAnnotator: annotateEntityResponse },
     { name: "get", requestAnnotator: annotateEntityRequest, responseAnnotator: annotateEntityResponse },
+    { name: "list", requestAnnotator: annotateGenericIdRequest, responseAnnotator: annotateListResponse },
     { name: "update", requestAnnotator: annotateEntityRequest, responseAnnotator: annotateEntityResponse },
     { name: "delete", requestAnnotator: annotateEntityRequest, responseAnnotator: annotateEntityResponse },
   ],
@@ -737,7 +1065,7 @@ const PLANS_SPEC: ResourceSpec = {
   methods: [
     { name: "create", requestAnnotator: annotatePlanRequest, responseAnnotator: annotatePlanResponse },
     { name: "get", requestAnnotator: annotatePlanRequest, responseAnnotator: annotatePlanResponse },
-    { name: "list", responseAnnotator: annotateGenericIdResponse },
+    { name: "list", responseAnnotator: annotateListResponse },
     { name: "update", requestAnnotator: annotatePlanRequest, responseAnnotator: annotatePlanResponse },
     { name: "delete", requestAnnotator: annotatePlanRequest, responseAnnotator: annotatePlanResponse },
   ],
@@ -748,7 +1076,7 @@ const FEATURES_SPEC: ResourceSpec = {
   methods: [
     { name: "create", requestAnnotator: annotateFeatureRequest, responseAnnotator: annotateFeatureResponse },
     { name: "get", requestAnnotator: annotateFeatureRequest, responseAnnotator: annotateFeatureResponse },
-    { name: "list", responseAnnotator: annotateGenericIdResponse },
+    { name: "list", responseAnnotator: annotateListResponse },
     { name: "update", requestAnnotator: annotateFeatureRequest, responseAnnotator: annotateFeatureResponse },
     { name: "delete", requestAnnotator: annotateFeatureRequest, responseAnnotator: annotateFeatureResponse },
   ],
@@ -759,6 +1087,81 @@ const REFERRALS_SPEC: ResourceSpec = {
   methods: [
     { name: "createCode", requestAnnotator: annotateReferralRequest, responseAnnotator: annotateReferralResponse },
     { name: "redeemCode", requestAnnotator: annotateReferralRequest, responseAnnotator: annotateReferralResponse },
+    { name: "createProgram", requestAnnotator: annotateReferralProgramRequest, responseAnnotator: annotateReferralProgramResponse },
+    { name: "listPrograms", responseAnnotator: annotateListResponse },
+    { name: "getProgram", requestAnnotator: annotateReferralProgramRequest, responseAnnotator: annotateReferralProgramResponse },
+    { name: "updateProgram", requestAnnotator: annotateReferralProgramRequest, responseAnnotator: annotateReferralProgramResponse },
+    { name: "deleteProgram", requestAnnotator: annotateReferralProgramRequest, responseAnnotator: annotateSuccessResponse },
+  ],
+};
+
+const INVOICES_SPEC: ResourceSpec = {
+  name: "invoices",
+  methods: [
+    { name: "create", requestAnnotator: annotateInvoiceRequest, responseAnnotator: annotateInvoiceResponse },
+    { name: "insert", responseAnnotator: annotateInsertInvoicesResponse },
+    { name: "list", requestAnnotator: annotateGenericIdRequest, responseAnnotator: annotateListResponse },
+    { name: "listTemplates", responseAnnotator: annotateListResponse },
+    { name: "pay", requestAnnotator: annotateInvoiceRequest, responseAnnotator: annotateInvoiceResponse },
+    { name: "reissue", requestAnnotator: annotateInvoiceRequest, responseAnnotator: annotateInvoiceResponse },
+    { name: "void", requestAnnotator: annotateInvoiceRequest, responseAnnotator: annotateInvoiceResponse },
+  ],
+};
+
+const LICENSES_SPEC: ResourceSpec = {
+  name: "licenses",
+  methods: [
+    { name: "attach", requestAnnotator: annotateLicenseRequest, responseAnnotator: annotateSuccessResponse },
+    { name: "release", requestAnnotator: annotateLicenseRequest, responseAnnotator: annotateSuccessResponse },
+  ],
+};
+
+const REWARDS_SPEC: ResourceSpec = {
+  name: "rewards",
+  methods: [
+    { name: "create", requestAnnotator: annotateRewardRequest, responseAnnotator: annotateRewardResponse },
+    { name: "list", responseAnnotator: annotateRewardListResponse },
+    { name: "get", requestAnnotator: annotateRewardRequest, responseAnnotator: annotateRewardResponse },
+    { name: "update", requestAnnotator: annotateRewardRequest, responseAnnotator: annotateRewardResponse },
+    { name: "delete", requestAnnotator: annotateRewardRequest, responseAnnotator: annotateRewardResponse },
+    { name: "redeemCode", requestAnnotator: annotateRewardRequest, responseAnnotator: annotateRewardResponse },
+  ],
+};
+
+// No response annotators: mint/refresh return access and refresh tokens.
+const KEYS_SPEC: ResourceSpec = {
+  name: "keys",
+  methods: [
+    { name: "mint", requestAnnotator: annotateGenericIdRequest },
+    { name: "refresh" },
+    { name: "revoke", requestAnnotator: annotateGenericIdRequest },
+  ],
+};
+
+// No request annotator: the free-text search query may contain customer PII.
+const LOGS_SPEC: ResourceSpec = {
+  name: "logs",
+  methods: [{ name: "search", responseAnnotator: annotateListResponse }],
+};
+
+const PLATFORM_SPEC: ResourceSpec = {
+  name: "platform",
+  methods: [
+    { name: "getStripeConnection", requestAnnotator: annotatePlatformRequest, responseAnnotator: annotatePlatformResponse },
+    { name: "disconnectStripe", requestAnnotator: annotatePlatformRequest, responseAnnotator: annotatePlatformResponse },
+    { name: "linkRevenueCat", requestAnnotator: annotatePlatformRequest },
+    { name: "syncRevenueCat", requestAnnotator: annotatePlatformRequest, responseAnnotator: annotatePlatformResponse },
+    { name: "getRevenueCatKeys", requestAnnotator: annotatePlatformRequest },
+  ],
+};
+
+const SANDBOXES_SPEC: ResourceSpec = {
+  name: "sandboxes",
+  methods: [
+    { name: "create", requestAnnotator: annotateSandboxRequest, responseAnnotator: annotateSandboxResponse },
+    { name: "list", responseAnnotator: annotateListResponse },
+    { name: "delete", requestAnnotator: annotateSandboxRequest, responseAnnotator: annotateSandboxResponse },
+    { name: "reset", responseAnnotator: annotateSandboxResponse },
   ],
 };
 
@@ -777,11 +1180,18 @@ const SUB_RESOURCES: SubResource[] = [
   { key: "plans", spec: PLANS_SPEC, flag: "instrumentPlans" },
   { key: "features", spec: FEATURES_SPEC, flag: "instrumentFeatures" },
   { key: "referrals", spec: REFERRALS_SPEC, flag: "instrumentReferrals" },
+  { key: "invoices", spec: INVOICES_SPEC, flag: "instrumentInvoices" },
+  { key: "licenses", spec: LICENSES_SPEC, flag: "instrumentLicenses" },
+  { key: "rewards", spec: REWARDS_SPEC, flag: "instrumentRewards" },
+  { key: "keys", spec: KEYS_SPEC, flag: "instrumentKeys" },
+  { key: "logs", spec: LOGS_SPEC, flag: "instrumentLogs" },
+  { key: "platform", spec: PLATFORM_SPEC, flag: "instrumentPlatform" },
+  { key: "sandboxes", spec: SANDBOXES_SPEC, flag: "instrumentSandboxes" },
 ];
 
 function wrapTopLevel(
   client: Autumn,
-  operationName: "check" | "track" | "attach" | "cancel" | "setupPayment" | "usage",
+  operationName: "check" | "track" | "trackTokens" | "batchTrack" | "attach" | "cancel" | "setupPayment" | "usage",
   tracer: Tracer,
   config: InstrumentAutumnConfig,
   requestAnnotator: Annotator,
@@ -804,10 +1214,13 @@ function wrapTopLevel(
 /**
  * Instruments an Autumn SDK client with OpenTelemetry tracing.
  *
- * Wraps the flat `check`/`track` methods plus every sub-resource operation
- * (`billing.*`, `customers.*`, `entities.*`, `balances.*`, `events.*`,
- * `plans.*`, `features.*`, `referrals.*`). Instrumentation is idempotent —
- * calling it twice on the same client is a no-op.
+ * Wraps the flat `check`/`track`/`trackTokens`/`batchTrack` methods plus every
+ * sub-resource operation (`billing.*`, `customers.*`, `entities.*`,
+ * `balances.*`, `events.*`, `plans.*`, `features.*`, `referrals.*`,
+ * `invoices.*`, `licenses.*`, `rewards.*`, `keys.*`, `logs.*`, `platform.*`,
+ * `sandboxes.*`). Methods and sub-resources missing from the installed
+ * autumn-js version are skipped. Instrumentation is idempotent — calling it
+ * twice on the same client is a no-op.
  *
  * @example
  * ```ts
@@ -832,6 +1245,8 @@ export function instrumentAutumn<T extends Autumn>(
 
   wrapTopLevel(client, "check", tracer, config, annotateCheckRequest, annotateCheckResponse);
   wrapTopLevel(client, "track", tracer, config, annotateTrackRequest, annotateTrackResponse);
+  wrapTopLevel(client, "trackTokens", tracer, config, annotateTrackTokensRequest, annotateTrackResponse);
+  wrapTopLevel(client, "batchTrack", tracer, config, annotateBatchTrackRequest, annotateSuccessResponse);
 
   // Pre-1.0 autumn-js exposed billing flows as flat top-level methods. In 1.x
   // these live under `autumn.billing.*` (or were replaced, e.g. `cancel` →

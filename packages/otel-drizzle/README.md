@@ -12,7 +12,18 @@ pnpm add @api-blitz/otel-drizzle
 yarn add @api-blitz/otel-drizzle
 ```
 
-**Peer Dependencies:** `@opentelemetry/api` >= 1.9.0, `drizzle-orm` >= 0.28.0
+**Peer Dependencies:** `@opentelemetry/api` >= 1.9.0, `drizzle-orm` >= 0.28.0 (including the 1.0 release line)
+
+## Supported Drizzle Versions
+
+Works with every `drizzle-orm` release from 0.28 up to the latest, including the 1.0 betas / release candidates. The test suite runs against real drizzle-orm 0.28, 0.36, 0.45 and 1.0 (rc) installs.
+
+- **All dialects**: PostgreSQL, MySQL, SingleStore and SQLite drivers (postgres.js, node-postgres, PGlite, Neon, Vercel Postgres, mysql2, PlanetScale, LibSQL/Turso, D1, better-sqlite3, bun:sqlite, sql.js, proxies, ...)
+- **Sync SQLite drivers** (better-sqlite3, bun:sqlite, sql.js, ...) keep their synchronous API: `.all()`, `.get()`, `.run()`, `.values()` and sync `db.transaction()` callbacks work unchanged
+- **Relational queries** (`db.query.*`), both the classic API and relations v2 in drizzle-orm 1.0
+- **Batches** (`db.batch([...])` on LibSQL, D1, Neon HTTP, SQLite proxy) are traced as a single `drizzle.batch` span
+- **Read replicas** created with `withReplicas()` are instrumented automatically when drizzle exposes `$replicas`. On older releases that don't, call `instrumentDrizzleClient()` on each replica too
+- **Effect drivers** (`drizzle-orm/effect-*`, 1.0 only) are left untouched; trace them with Effect's own OpenTelemetry integration
 
 ## Supported Frameworks
 
@@ -185,7 +196,7 @@ instrumentDrizzleClient(db, {
 
 Each database query automatically creates a span with rich telemetry data:
 
-- **Span name**: `drizzle.select`, `drizzle.insert`, `drizzle.update`, etc.
+- **Span name**: `drizzle.select`, `drizzle.insert`, `drizzle.update`, `drizzle.batch`, etc.
 - **Operation type**: `db.operation` attribute (SELECT, INSERT, UPDATE, DELETE, SET)
 - **SQL query text**: Full query statement captured in `db.statement` (configurable)
 - **Database system**: `db.system` attribute (postgresql, mysql, sqlite, etc.)
@@ -197,20 +208,23 @@ Each database query automatically creates a span with rich telemetry data:
 
 All queries within transactions are automatically traced, including:
 - RLS (Row Level Security) queries like `SET LOCAL role` and `set_config()`
-- All nested transaction queries
+- All nested transaction queries (savepoints)
 - Transaction rollbacks and commits
+
+Each query produces exactly one span, whether it runs through `tx.execute()`, a query builder or a relational query.
 
 ### Span Attributes
 
 The instrumentation adds the following attributes to each span following [OpenTelemetry semantic conventions](https://opentelemetry.io/docs/specs/semconv/database/):
 
-| Attribute        | Description           | Example                               |
-| ---------------- | --------------------- | ------------------------------------- |
-| `db.operation`   | SQL operation type    | `SELECT`                              |
-| `db.statement`   | Full SQL query        | `select "id", "name" from "users"...` |
-| `db.system`      | Database system       | `postgresql`                          |
-| `db.name`        | Database name         | `myapp`                               |
-| `operation.name` | Client operation name | `apiBlitz_otel-drizzle.client`          |
+| Attribute                 | Description                    | Example                               |
+| ------------------------- | ------------------------------ | ------------------------------------- |
+| `db.operation`            | SQL operation type             | `SELECT`                              |
+| `db.statement`            | Full SQL query                 | `select "id", "name" from "users"...` |
+| `db.system`               | Database system                | `postgresql`                          |
+| `db.name`                 | Database name                  | `myapp`                               |
+| `db.transaction`          | Query ran inside a transaction | `true`                                |
+| `db.operation.batch.size` | Number of queries in a batch   | `3`                                   |
 
 ## License
 

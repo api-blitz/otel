@@ -1,7 +1,7 @@
 # @api-blitz/otel-autumn
 
 OpenTelemetry instrumentation for the [Autumn](https://useautumn.com) billing SDK (`autumn-js`).
-Capture spans for every Autumn API call — feature access checks, usage tracking, the full billing lifecycle, customer and entity management, balances, events, plans, features, and referrals — and enrich them with rich billing metadata.
+Capture spans for every Autumn API call — feature access checks, usage and AI-token tracking, the full billing lifecycle (including schedules and multi-updates), customer and entity management, balances, events, plans, features, referrals, invoices, licenses, rewards, keys, logs, platform connections, and sandboxes — and enrich them with rich billing metadata.
 
 ## Installation
 
@@ -39,21 +39,24 @@ await autumn.billing.attach({ customerId: "cus_123", planId: "pro" });
 
 ## Version compatibility
 
-Works across `autumn-js` from the last pre-1.0 releases (`>= 0.0.70`) through the current 1.x line.
+Works across `autumn-js` from the last pre-1.0 releases (`>= 0.0.70`) through the latest 1.x line (tested against 1.3.19).
 
-- **1.x** — full 36-method coverage across `check`, `track`, and every `billing.*` / `customers.*` / `entities.*` / `balances.*` / `events.*` / `plans.*` / `features.*` / `referrals.*` sub-resource.
-- **Pre-1.0 (0.0.70 – 0.0.80)** — `check` and `track`, plus the flat top-level billing methods that existed before the 1.x rename: `attach`, `cancel`, `setupPayment`, `usage`. Pre-1.0's `Result<T, E>` response envelope is unwrapped automatically so response-side span attributes are populated the same way as on 1.x. Pre-1.0's `product_id` / `product_ids` are surfaced under the `autumn.plan_id` / `autumn.plan_ids` attribute so dashboards stay consistent across versions.
+- **1.3.x** — full 78-method coverage: `check`, `track`, `trackTokens`, `batchTrack`, and every `billing.*` / `customers.*` / `entities.*` / `balances.*` / `events.*` / `plans.*` / `features.*` / `referrals.*` / `invoices.*` / `licenses.*` / `rewards.*` / `keys.*` / `logs.*` / `platform.*` / `sandboxes.*` operation. Cursor pagination (`nextCursor`) is mapped to the same `autumn.has_more` attribute as the older offset pagination.
+- **1.2.x** — everything the installed release exposes. Early 1.2 releases only have the original 36 methods; later 1.2 releases add `trackTokens`, `batchTrack`, `billing.createSchedule` / `multiUpdate` / `import`, `customers.get`, `entities.list`, referral programs, and the `invoices`, `licenses`, `rewards`, `keys`, and `platform` sub-resources. `logs`, `sandboxes`, and `customers.advanceTestClock` arrived in 1.3.
+- **Pre-1.0 (0.0.70 – 0.1.x)** — `check` and `track`, plus the flat top-level billing methods that existed before the 1.x rename: `attach`, `cancel`, `setupPayment`, `usage`. Pre-1.0's `Result<T, E>` response envelope is unwrapped automatically so response-side span attributes are populated the same way as on 1.x. Pre-1.0's `product_id` / `product_ids` are surfaced under the `autumn.plan_id` / `autumn.plan_ids` attribute so dashboards stay consistent across versions, and positional customer ids (`customers.get("cus_123")`) populate `autumn.customer_id`.
 
-Methods that don't exist on the installed SDK version are skipped silently — instrumenting a pre-1.0 client doesn't fail because `autumn.billing` / `autumn.plans` aren't present.
+Methods that don't exist on the installed SDK version are skipped silently — instrumenting an older client doesn't fail because `autumn.billing`, `autumn.invoices`, or `autumn.sandboxes` aren't present.
 
 ## What gets traced
 
-The instrumentation wraps every method on the Autumn SDK client — 2 top-level entry points plus 34 sub-resource operations across 8 namespaces.
+The instrumentation wraps every method on the Autumn SDK client — 4 top-level entry points plus 74 sub-resource operations across 15 namespaces (as of autumn-js 1.3.19).
 
 ### Top-level
 
 - **`check`** — feature access checks; optionally atomic check + track via `sendEvent`
 - **`track`** — record usage events
+- **`trackTokens`** — record AI model token usage against a credit system
+- **`batchTrack`** — record many usage events in one request
 
 ### Billing
 
@@ -62,16 +65,19 @@ The instrumentation wraps every method on the Autumn SDK client — 2 top-level 
 - `billing.previewAttach` / `billing.previewMultiAttach` — preview charges before confirming
 - `billing.update` — update subscriptions, including `cancelAction: 'cancel_immediately' | 'cancel_end_of_cycle' | 'uncancel'`
 - `billing.previewUpdate` — preview prorated charges for an update
+- `billing.multiUpdate` / `billing.previewMultiUpdate` — update several subscriptions at once
+- `billing.createSchedule` — schedule phased plan changes
 - `billing.openCustomerPortal` — Stripe billing portal session
 - `billing.setupPayment` — payment-method setup session
+- `billing.import` — import existing processor subscriptions
 
 ### Customers
 
-- `customers.getOrCreate`, `list`, `update`, `delete`
+- `customers.getOrCreate`, `get`, `list`, `update`, `delete`, `advanceTestClock`
 
 ### Entities
 
-- `entities.create`, `get`, `update`, `delete` — for per-seat / per-project scoped balances
+- `entities.create`, `get`, `list`, `update`, `delete` — for per-seat / per-project scoped balances
 
 ### Balances
 
@@ -93,6 +99,26 @@ The instrumentation wraps every method on the Autumn SDK client — 2 top-level 
 ### Referrals
 
 - `referrals.createCode`, `redeemCode`
+- `referrals.createProgram`, `listPrograms`, `getProgram`, `updateProgram`, `deleteProgram`
+
+### Invoices
+
+- `invoices.create`, `insert`, `list`, `listTemplates`, `pay`, `reissue`, `void`
+
+### Licenses
+
+- `licenses.attach`, `release`
+
+### Rewards
+
+- `rewards.create`, `list`, `get`, `update`, `delete`, `redeemCode`
+
+### Keys, logs, platform, sandboxes
+
+- `keys.mint`, `refresh`, `revoke`
+- `logs.search`
+- `platform.getStripeConnection`, `disconnectStripe`, `linkRevenueCat`, `syncRevenueCat`, `getRevenueCatKeys`
+- `sandboxes.create`, `list`, `delete`, `reset`
 
 ## Configuration
 
@@ -103,16 +129,13 @@ instrumentAutumn(autumn, {
   // Custom tracer name (default: "@api-blitz/otel-autumn")
   tracerName: "my-app-autumn-tracer",
 
-  // Emit potentially sensitive customer data (payment URLs, portal URLs).
-  // The non-sensitive `autumn.has_payment_url` / `autumn.has_portal_url`
-  // booleans are always emitted regardless (default: false).
+  // Emit potentially sensitive customer data (payment URLs, portal URLs,
+  // reward promo codes). The non-sensitive `autumn.has_payment_url` /
+  // `autumn.has_portal_url` booleans are always emitted regardless
+  // (default: false).
   captureCustomerData: false,
 
-  // Capture plan customization blobs and checkout session params (default: false).
-  captureOptions: false,
-
   // Master switches
-  captureResourceIds: true,
   captureRequestAttributes: true,
   captureResponseAttributes: true,
 
@@ -125,6 +148,13 @@ instrumentAutumn(autumn, {
   instrumentPlans: true,
   instrumentFeatures: true,
   instrumentReferrals: true,
+  instrumentInvoices: true,
+  instrumentLicenses: true,
+  instrumentRewards: true,
+  instrumentKeys: true,
+  instrumentLogs: true,
+  instrumentPlatform: true,
+  instrumentSandboxes: true,
 });
 ```
 
@@ -169,8 +199,37 @@ Every span includes comprehensive attributes to help with debugging and monitori
 | `autumn.event_name`    | Custom event name (when provided)                   | `message_sent` |
 | `autumn.value`         | Usage value recorded                                | `1`            |
 | `autumn.lock`          | Balance lock id (when provided)                     | `lock_abc`     |
+| `autumn.overage_behavior` | `cap` / `overflow`                               | `cap`          |
+| `autumn.async`         | Whether the event was enqueued asynchronously       | `false`        |
 | `autumn.balance`       | Updated remaining balance after the track call      | `41`           |
 | `autumn.balance_count` | Number of updated balances when tracking by event   | `3`            |
+| `autumn.deduction_count` | Number of balance deductions applied              | `1`            |
+
+### `autumn.trackTokens`
+
+Emits the `autumn.track` response attributes above, plus:
+
+| Attribute                    | Description                                   | Example                     |
+| ---------------------------- | --------------------------------------------- | --------------------------- |
+| `autumn.model_id`            | `provider/model` key                          | `anthropic/claude-opus-4-8` |
+| `autumn.input_tokens`        | Non-cached text input tokens                  | `1200`                      |
+| `autumn.output_tokens`       | Text output tokens                            | `340`                       |
+| `autumn.cache_read_tokens`   | Cached input tokens read                      | `800`                       |
+| `autumn.cache_write_tokens`  | Input tokens written to the cache             | `0`                         |
+| `autumn.reasoning_tokens`    | Reasoning tokens                              | `50`                        |
+| `autumn.audio_input_tokens`  | Audio input tokens                            | `0`                         |
+| `autumn.audio_output_tokens` | Audio output tokens                           | `0`                         |
+
+Token counts use the `autumn.*` namespace rather than `gen_ai.usage.*` so billing spans aren't double-counted by GenAI dashboards that already read the model-call spans.
+
+### `autumn.batchTrack`
+
+| Attribute            | Description                                                   | Example   |
+| -------------------- | ------------------------------------------------------------- | --------- |
+| `autumn.batch_size`  | Number of events in the batch                                 | `25`      |
+| `autumn.customer_id` | Set only when every event in the batch shares the customer    | `cus_123` |
+| `autumn.feature_id`  | Set only when every event in the batch shares the feature     | `messages`|
+| `autumn.success`     | Whether the batch was accepted                                | `true`    |
 
 ### `autumn.billing.*`
 
@@ -202,6 +261,17 @@ Every span includes comprehensive attributes to help with debugging and monitori
 | `autumn.has_portal_url`           | Whether a portal URL was returned (`openCustomerPortal`)                  | `true`                  |
 | `autumn.portal_url`               | Billing portal URL (only when `captureCustomerData: true`)                | `https://billing.stripe.com/...` |
 | `autumn.required_action`          | `3ds_required` / `payment_method_required` / `payment_failed`             | `payment_method_required` |
+| `autumn.billing_behavior`         | `prorate_immediately` / `none` (`multiAttach`, `createSchedule`)          | `prorate_immediately`   |
+| `autumn.update_count`             | Number of subscription updates on `multiUpdate`                           | `2`                     |
+| `autumn.phase_count`              | Number of phases on `createSchedule`                                      | `2`                     |
+| `autumn.schedule_id`              | Schedule id returned by `createSchedule`                                  | `sched_123`             |
+| `autumn.schedule_status`          | `created` / `pending_payment`                                             | `created`               |
+| `autumn.billable_count`           | Number of billables passed to `import`                                    | `3`                     |
+| `autumn.dry_run`                  | Whether `import` ran as a dry run                                         | `true`                  |
+| `autumn.import_count`             | Number of plans imported by `import`                                      | `3`                     |
+
+`multiUpdate` and `createSchedule` also emit `autumn.plan_ids` / `autumn.plan_count`
+(deduplicated across phases for schedules).
 
 ### `autumn.customers.*`, `autumn.entities.*`, `autumn.balances.*`
 
@@ -211,7 +281,19 @@ from the response. Notable additions:
 - `autumn.entities.create` adds `autumn.entity_feature_id` — distinct from the
   balance-check `autumn.feature_id`.
 - `autumn.balances.*` emits `autumn.feature_id`, `autumn.balance` (post-update
-  remaining), and `autumn.lock` on `finalize`.
+  remaining), `autumn.lock` on `finalize`, and `autumn.success` when the
+  response carries it.
+- `autumn.customers.advanceTestClock` adds `autumn.frozen_time` and
+  `autumn.test_clock_status`.
+
+### List operations
+
+Every `list` / `listPrograms` / `listTemplates` / `logs.search` span emits:
+
+| Attribute             | Description                                                             | Example |
+| --------------------- | ----------------------------------------------------------------------- | ------- |
+| `autumn.result_count` | Items returned in this page                                             | `50`    |
+| `autumn.has_more`     | Whether another page exists (`hasMore`, or a non-null `nextCursor`)     | `true`  |
 
 ### `autumn.events.*`
 
@@ -224,7 +306,7 @@ from the response. Notable additions:
 | `autumn.value`           | Summed value across all features on `aggregate`                        | `1536`  |
 | `autumn.period_count`    | Number of time buckets returned by `aggregate`                         | `7`     |
 | `autumn.feature_count`   | Number of features in the aggregate totals                             | `2`     |
-| `autumn.has_more`        | Whether `list` has more pages available                                | `false` |
+| `autumn.has_more`        | Whether `list` has more pages available (offset or cursor pagination)  | `false` |
 
 ### `autumn.plans.*`, `autumn.features.*`
 
@@ -242,6 +324,40 @@ from the response. Notable additions:
 | ---------------------------- | ------------------------------ |
 | `autumn.referral_program_id` | Referral program id            |
 | `autumn.referral_code`       | Referral code created/redeemed |
+| `autumn.reward_id`           | Reward linked to the program or granted on redeem |
+
+### `autumn.invoices.*`
+
+| Attribute                  | Description                                                        | Example    |
+| -------------------------- | ------------------------------------------------------------------ | ---------- |
+| `autumn.invoice_autumn_id` | Autumn invoice id (the `invoiceId` that `pay` / `void` / `reissue` take) | `inv_123` |
+| `autumn.invoice_id`        | Processor (Stripe) invoice id — same meaning as on `billing.*` spans | `in_1N...` |
+| `autumn.invoice_status`    | `draft` / `open` / `paid` / `void` / `uncollectible`               | `paid`     |
+| `autumn.total_amount`      | Invoice total, or preview total when `preview: true`               | `4200`     |
+| `autumn.currency`          | Three-letter ISO currency                                          | `usd`      |
+| `autumn.is_preview`        | Whether `create` / `reissue` ran as a preview                      | `true`     |
+| `autumn.plan_ids`          | Plans on the invoice                                               | `pro`      |
+
+### `autumn.licenses.*`, `autumn.rewards.*`
+
+| Attribute                  | Description                                                           | Example         |
+| -------------------------- | --------------------------------------------------------------------- | --------------- |
+| `autumn.plan_id`           | License plan attached / released                                      | `team`          |
+| `autumn.entity_count`      | Entities the license was attached to / released from                  | `2`             |
+| `autumn.success`           | Whether the operation succeeded                                       | `true`          |
+| `autumn.reward_id`         | Reward id                                                             | `rew_123`       |
+| `autumn.reward_type`       | `coupon` / `feature_grant`                                            | `coupon`        |
+| `autumn.entitlement_count` | Entitlements granted by `rewards.redeemCode`                          | `1`             |
+| `autumn.reward_code`       | Promo code redeemed (only when `captureCustomerData: true`)           | `SAVE50`        |
+
+### `autumn.keys.*`, `autumn.logs.*`, `autumn.platform.*`, `autumn.sandboxes.*`
+
+These resources return credentials, so only an allow-listed set of fields is
+ever read: `autumn.customer_id` (keys), `autumn.result_count` (logs),
+`autumn.organization_slug` / `autumn.env` / `autumn.connected` (platform), and
+`autumn.sandbox_id` / `autumn.sandbox_name` (sandboxes). Access and refresh
+tokens, OAuth URLs and tokens, sandbox secret keys, and log search queries are
+**never** recorded — not even with `captureCustomerData: true`.
 
 ## Usage examples
 
@@ -278,6 +394,17 @@ await autumn.track({
   customerId: "cus_123",
   featureId: "messages",
   value: 1,
+});
+```
+
+### Tracking AI token usage
+
+```ts
+await autumn.trackTokens({
+  customerId: "cus_123",
+  modelId: "anthropic/claude-opus-4-8",
+  inputTokens: 1200,
+  outputTokens: 340,
 });
 ```
 
@@ -404,8 +531,8 @@ instrumentAutumn(autumn);
 1. **Instrument early** — call `instrumentAutumn()` once when initializing your Autumn client, before any API calls.
 2. **Reuse clients** — instrument a single Autumn client and reuse it throughout your app.
 3. **Context propagation** — the instrumentation automatically propagates OpenTelemetry context so Autumn spans nest correctly under parent HTTP / gRPC / DB spans.
-4. **Sensitive data** — `autumn.payment_url` and `autumn.portal_url` are gated behind `captureCustomerData: false` by default. Keep it off unless your trace pipeline is trusted and can handle payment session tokens.
-5. **Scope down sub-resources** — if your app only uses the runtime APIs (`check`, `track`, `billing.*`), disable admin sub-resources (`instrumentPlans: false`, `instrumentFeatures: false`) to keep the instrumentation surface minimal.
+4. **Sensitive data** — `autumn.payment_url`, `autumn.portal_url`, and `autumn.reward_code` are gated behind `captureCustomerData: false` by default. Keep it off unless your trace pipeline is trusted and can handle payment session tokens and promo codes.
+5. **Scope down sub-resources** — if your app only uses the runtime APIs (`check`, `track`, `trackTokens`, `billing.*`), disable admin sub-resources (`instrumentPlans: false`, `instrumentFeatures: false`, `instrumentSandboxes: false`, `instrumentPlatform: false`) to keep the instrumentation surface minimal.
 
 ## Framework integration
 
