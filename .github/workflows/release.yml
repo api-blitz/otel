@@ -15,8 +15,38 @@ concurrency:
 permissions: {}
 
 jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".node-version"
+          cache: "pnpm"
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Unit tests
+        run: pnpm unit-test
+
   version:
     name: Version
+    # The "Version Packages" PR is opened by GITHUB_TOKEN, and GitHub does not
+    # start workflow runs for events it creates, so that PR never gets its own
+    # unit-test/type-check run. Gate the release path here instead.
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: write # push the changeset-release/main branch
@@ -48,7 +78,7 @@ jobs:
 
   publish:
     name: Publish
-    needs: version
+    needs: [verify, version]
     # Runs once the Version Packages PR is merged (no changesets left). Packages
     # whose version is already on npm are skipped, so this is a no-op otherwise.
     if: github.ref == 'refs/heads/main' && needs.version.outputs.has-changesets == 'false'

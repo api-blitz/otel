@@ -48,7 +48,9 @@ Releases are cut by CI ([`.github/workflows/release.yml`](./.github/workflows/re
 pnpm changeset                 # pick packages + bump type, write summary
 ```
 
-Commit the changeset with your PR. Once it lands on `main`, the workflow opens (or updates) a **Version Packages** PR. Merging that PR publishes every package whose version is ahead of npm, with provenance, and creates the GitHub releases and tags.
+Commit the changeset with your PR. Once it lands on `main`, the workflow type-checks and unit-tests the tree, then opens (or updates) a **Version Packages** PR. Merging that PR publishes every package whose version is ahead of npm, with provenance, and creates the GitHub releases and tags.
+
+Those checks run inside `release.yml` rather than on the Version Packages PR itself: the PR is opened by the built-in `GITHUB_TOKEN`, and GitHub does not start workflow runs for events that token creates, so `pull_request` workflows never fire for it. Gating `version` and `publish` on a `verify` job keeps the release path covered without storing a PAT.
 
 Each package must have a trusted publisher on npm pointing at this workflow (repo `api-blitz/otel`, workflow `release.yml`, environment `npm`). With npm >= 11.15 (older CLIs get a bare `400` because they don't send the now-required `--allow-publish` permission; pin the version, since `npx npm@11` reuses an older installed 11.x):
 
