@@ -42,29 +42,23 @@ Want to see what the traces actually look like before you install? Each package 
 
 ## Releasing (maintainers)
 
-Releases go out by hand from a local checkout. Per change:
+Releases are cut by CI ([`.github/workflows/release.yml`](./.github/workflows/release.yml)) with [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers). No npm token or PAT is stored anywhere. Per change:
 
 ```bash
 pnpm changeset                 # pick packages + bump type, write summary
 ```
 
-When ready to ship the accumulated changesets:
+Commit the changeset with your PR. Once it lands on `main`, the workflow opens (or updates) a **Version Packages** PR. Merging that PR publishes every package whose version is ahead of npm, with provenance, and creates the GitHub releases and tags.
+
+Each package must have a trusted publisher on npm pointing at this workflow (repo `api-blitz/otel`, workflow `release.yml`, environment `npm`). With npm >= 11.15 (older CLIs get a bare `400` because they don't send the now-required `--allow-publish` permission; pin the version, since `npx npm@11` reuses an older installed 11.x):
 
 ```bash
-pnpm version-packages          # consumes changesets, bumps versions, updates CHANGELOGs
-git commit -am "Version Packages"
-pnpm release                   # runs build, then changeset publish
-git push --follow-tags
+npx npm@11.20.0 trust github @api-blitz/otel-<name> --repo api-blitz/otel --file release.yml --env npm --allow-publish
 ```
 
-`pnpm release` uses the `NPM_TOKEN` in your shell (or `npm login` session) and publishes every package whose local version is ahead of the npm registry.
+A package can only have one trusted publisher, so `npx npm@11.20.0 trust revoke <pkg> --id=<id>` an existing one (see `npm trust list <pkg>`) before replacing it.
 
-For the very first publish on a brand-new scope (nothing on the registry yet), skip the Changesets dance and just run:
-
-```bash
-pnpm build
-pnpm -r publish --access public
-```
+A brand-new package has to exist on npm before a trusted publisher can be attached, so its very first version goes out by hand from a logged-in checkout (`pnpm build && pnpm --filter @api-blitz/otel-<name> publish --access public`). After that, run the `npm trust` command above.
 
 ---
 
