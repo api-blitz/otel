@@ -1,5 +1,15 @@
 # @api-blitz/otel-autumn
 
+## 1.2.1
+
+### Patch Changes
+
+- [#9](https://github.com/api-blitz/otel/pull/9) [`4e85a41`](https://github.com/api-blitz/otel/commit/4e85a41e6914a2147f560b1fb7a28d93a2799fbd) Thanks [@ibadus](https://github.com/ibadus)! - Reduce instrumentation work, especially for unsampled spans and large batches.
+
+  - Skip request/response annotation when the span isn't recording (no SDK registered, or sampled out).
+  - `batchTrack` finds the shared customer / entity / feature / event name in a single pass with early exit instead of building a `Set` per attribute, so annotating large batches stays cheap.
+  - Pass `billing.system`, `billing.operation`, `autumn.resource` and `autumn.target` to `startSpan`, so attribute-based samplers can use them. The recorded attributes are unchanged.
+
 ## 1.2.0
 
 ### Minor Changes
