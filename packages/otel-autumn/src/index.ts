@@ -379,9 +379,14 @@ const annotateTrackTokensRequest: Annotator = (span, req) => {
 const annotateBatchTrackRequest: Annotator = (span, req) => {
   if (!Array.isArray(req)) return;
   span.setAttribute(SEMATTRS_AUTUMN_BATCH_SIZE, req.length);
+  // Single pass with early exit: batches can hold thousands of events.
   const uniform = (key: string): unknown => {
-    const values = new Set(req.map((event) => (isObject(event) ? event[key] : undefined)));
-    return values.size === 1 ? [...values][0] : undefined;
+    const first = isObject(req[0]) ? req[0][key] : undefined;
+    for (let i = 1; i < req.length; i++) {
+      const event = req[i];
+      if ((isObject(event) ? event[key] : undefined) !== first) return undefined;
+    }
+    return first;
   };
   setIfString(span, SEMATTRS_AUTUMN_CUSTOMER_ID, uniform("customerId"));
   setIfString(span, SEMATTRS_AUTUMN_ENTITY_ID, uniform("entityId"));
@@ -933,20 +938,26 @@ function wrapAsyncMethod(
   const target = resourceName ? `${resourceName}.${operationName}` : operationName;
   const spanName = `autumn.${target}`;
   const resourceTag = resourceName ?? operationName;
+  const annotateRequest = config.captureRequestAttributes === false ? undefined : requestAnnotator;
+  const annotateResponse = config.captureResponseAttributes === false ? undefined : responseAnnotator;
 
   return async function instrumented(this: unknown, ...args: unknown[]): Promise<unknown> {
-    const span = tracer.startSpan(spanName, { kind: SpanKind.CLIENT });
-
-    span.setAttributes({
-      [SEMATTRS_BILLING_SYSTEM]: "autumn",
-      [SEMATTRS_BILLING_OPERATION]: target,
-      [SEMATTRS_AUTUMN_RESOURCE]: resourceTag,
-      [SEMATTRS_AUTUMN_TARGET]: target,
+    // Passed at start so samplers see them.
+    const span = tracer.startSpan(spanName, {
+      kind: SpanKind.CLIENT,
+      attributes: {
+        [SEMATTRS_BILLING_SYSTEM]: "autumn",
+        [SEMATTRS_BILLING_OPERATION]: target,
+        [SEMATTRS_AUTUMN_RESOURCE]: resourceTag,
+        [SEMATTRS_AUTUMN_TARGET]: target,
+      },
     });
+    // Unsampled spans (or no SDK at all) drop attributes, so skip reading payloads for them.
+    const recording = span.isRecording();
 
-    if (config.captureRequestAttributes !== false && requestAnnotator && args.length > 0) {
+    if (recording && annotateRequest && args.length > 0) {
       try {
-        requestAnnotator(span, args[0], config);
+        annotateRequest(span, args[0], config);
       } catch {
         // Never fail the caller because of annotation bugs
       }
@@ -956,9 +967,9 @@ function wrapAsyncMethod(
 
     try {
       const result = await context.with(activeContext, () => originalMethod.apply(this, args));
-      if (config.captureResponseAttributes !== false && responseAnnotator) {
+      if (recording && annotateResponse) {
         try {
-          responseAnnotator(span, unwrapResult(result), config);
+          annotateResponse(span, unwrapResult(result), config);
         } catch {
           // swallow
         }

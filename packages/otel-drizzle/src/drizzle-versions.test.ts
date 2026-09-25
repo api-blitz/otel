@@ -230,6 +230,42 @@ describe.each(VERSIONS)("drizzle-orm $label", (version) => {
       expect(takeSpans()).toHaveLength(1);
     });
 
+    it("traces every execution of a reused prepared statement", async () => {
+      const { db, t } = await setup();
+      const insert = db.insert(t).values({ name: "ada" }).prepare();
+      const select = db.select().from(t).prepare();
+
+      insert.run();
+      select.all();
+      select.all();
+      db.transaction(() => select.all());
+
+      expect(summarize(takeSpans())).toEqual([
+        {
+          name: "drizzle.insert",
+          statement: 'insert into "t" ("id", "name") values (null, ?)',
+          transaction: false,
+        },
+        {
+          name: "drizzle.select",
+          statement: 'select "id", "name" from "t"',
+          transaction: false,
+        },
+        {
+          name: "drizzle.select",
+          statement: 'select "id", "name" from "t"',
+          transaction: false,
+        },
+        { name: "drizzle.begin", statement: "begin", transaction: true },
+        {
+          name: "drizzle.select",
+          statement: 'select "id", "name" from "t"',
+          transaction: true,
+        },
+        { name: "drizzle.commit", statement: "commit", transaction: true },
+      ]);
+    });
+
     it("supports sync transactions", async () => {
       const { db, t } = await setup();
 
@@ -456,6 +492,52 @@ describe.each(VERSIONS)("drizzle-orm $label", (version) => {
       expect(spans[0]?.attributes["db.statement"]).toBe(
         'insert into "t" ("id", "name") values (null, ?);\nselect "id", "name" from "t"',
       );
+    });
+
+    it("truncates batch statements and skips them when capture is off", async () => {
+      const { sqliteTable, integer, text } = await load(
+        version.pkg,
+        "/sqlite-core",
+      );
+      const { drizzle } = await load(version.pkg, "/sqlite-proxy");
+      const t = sqliteTable("t", {
+        id: integer("id").primaryKey(),
+        name: text("name"),
+      });
+      const createDb = () =>
+        drizzle(
+          async () => ({ rows: [] }),
+          async (queries: unknown[]) => queries.map(() => ({ rows: [] })),
+        );
+      const queries = (db: any) => [
+        db.insert(t).values({ name: "ada" }),
+        db.select().from(t),
+        db.select().from(t),
+      ];
+
+      const truncating = createDb();
+      instrumentDrizzleClient(truncating, {
+        dbSystem: "sqlite",
+        maxQueryTextLength: 60,
+      });
+      await truncating.batch(queries(truncating));
+
+      const silent = createDb();
+      instrumentDrizzleClient(silent, {
+        dbSystem: "sqlite",
+        captureQueryText: false,
+      });
+      await silent.batch(queries(silent));
+
+      const spans = takeSpans();
+      expect(spans).toHaveLength(2);
+      const full =
+        'insert into "t" ("id", "name") values (null, ?);\nselect "id", "name" from "t";\nselect "id", "name" from "t"';
+      expect(spans[0]?.attributes["db.statement"]).toBe(
+        `${full.slice(0, 60)}...`,
+      );
+      expect(spans[1]?.attributes["db.statement"]).toBeUndefined();
+      expect(spans[1]?.attributes["db.operation.batch.size"]).toBe(3);
     });
   });
 });
