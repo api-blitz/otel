@@ -8,7 +8,11 @@
   "description": "OpenTelemetry instrumentation for Drizzle ORM",
   "author": "api-blitz",
   "license": "MIT",
-  "repository": "api-blitz/otel",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/api-blitz/otel.git",
+    "directory": "packages/otel-drizzle"
+  },
   "sideEffects": false,
   "type": "module",
   "exports": {
