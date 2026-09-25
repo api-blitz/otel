@@ -183,7 +183,7 @@ describe("instrumentDrizzle", () => {
 
     const statement = span.attributes["db.statement"] as string;
     expect(statement.length).toBe(53); // 50 + "..."
-    expect(statement.endsWith("...")).toBe(true);
+    expect(statement).toBe(`${longQuery.slice(0, 50)}...`);
   });
 
   it("handles query objects with sql property", async () => {

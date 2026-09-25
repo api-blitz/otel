@@ -14,11 +14,9 @@ const DEFAULT_TRACER_NAME = "@api-blitz/otel-drizzle";
 const DEFAULT_DB_SYSTEM = "postgresql";
 const INSTRUMENTED_FLAG = "__apiBlitzOtelDrizzleInstrumented" as const;
 
-// Hidden markers stored on drizzle sessions / prepared queries.
+// Hidden markers stored on drizzle sessions.
 const TRANSACTION_SESSION_FLAG = "__apiBlitzOtelDrizzleTransactionSession";
 const TRANSACTION_DEPTH = "__apiBlitzOtelDrizzleTransactionDepth";
-const BUSY_FLAG = "__apiBlitzOtelDrizzleBusy";
-const BATCH_STATEMENTS = "__apiBlitzOtelDrizzleBatchStatements";
 
 // Marks our wrapper functions (value = the wrapped original) so nothing gets wrapped twice,
 // even across multiple copies of this package.
@@ -36,6 +34,15 @@ const TRANSACTION_CONTEXT_KEY = createContextKey(
 const ACTIVE_QUERY_CONTEXT_KEY = createContextKey(
   "@api-blitz/otel-drizzle.active-query",
 );
+
+// Prepared query whose instrumented method is running synchronously right now. Covers the
+// same internal delegation as ACTIVE_QUERY_CONTEXT_KEY when no context manager is registered.
+let busyPrepared: object | undefined;
+// True while a prepare wrapper runs; nested prepare calls
+// (`prepareOneTimeQuery` -> `prepareQuery`) pass straight through to the outermost one.
+let preparing = false;
+// Collects the SQL of the queries a `batch()` call prepares (synchronously, before it awaits).
+let batchStatements: string[] | undefined;
 
 /**
  * Methods drizzle calls on a prepared query to run it. PostgreSQL / MySQL drivers use
@@ -199,7 +206,22 @@ function sanitizeQueryText(queryText: string, maxLength: number): string {
   if (queryText.length <= maxLength) {
     return queryText;
   }
-  return `${queryText.substring(0, maxLength)}...`;
+  // A plain `substring` is a view that keeps the whole statement (e.g. a large bulk insert)
+  // alive while the span waits to be exported. Prefixing and slicing forces a copy of just
+  // the kept characters.
+  return `${(" " + queryText.substring(0, maxLength)).slice(1)}...`;
+}
+
+/**
+ * Joins batch statements for `db.statement`, stopping once the text is past `maxLength`
+ * rather than building the whole batch's SQL only to truncate it.
+ */
+function joinBatchStatements(statements: string[], maxLength: number): string {
+  let text = statements[0] ?? "";
+  for (let i = 1; i < statements.length && text.length <= maxLength; i++) {
+    text += `;\n${statements[i]}`;
+  }
+  return sanitizeQueryText(text, maxLength);
 }
 
 /**
@@ -212,15 +234,38 @@ function extractOperation(queryText: string): string | undefined {
 }
 
 /**
+ * What a query span records about its SQL.
+ */
+interface QueryDescription {
+  operation?: string;
+  statement?: string;
+}
+
+const BATCH_QUERY: QueryDescription = { operation: "BATCH" };
+
+function describeQuery(
+  settings: SpanSettings,
+  queryText: string | undefined,
+): QueryDescription {
+  if (queryText === undefined) {
+    return {};
+  }
+  return {
+    operation: extractOperation(queryText),
+    statement: settings.captureQueryText
+      ? sanitizeQueryText(queryText, settings.maxQueryTextLength)
+      : undefined,
+  };
+}
+
+/**
  * Starts a CLIENT span describing a single database operation.
  */
 function startQuerySpan(
   settings: SpanSettings,
-  queryText: string | undefined,
-  options: { transaction?: boolean; operation?: string } = {},
+  { operation, statement }: QueryDescription,
+  options: { transaction?: boolean } = {},
 ): Span {
-  const operation =
-    options.operation ?? (queryText ? extractOperation(queryText) : undefined);
   const spanName = operation
     ? `drizzle.${operation.toLowerCase()}`
     : "drizzle.query";
@@ -239,11 +284,8 @@ function startQuerySpan(
     attributes[SEMATTRS_DB_NAME] = settings.dbName;
   }
 
-  if (settings.captureQueryText && queryText !== undefined) {
-    attributes[SEMATTRS_DB_STATEMENT] = sanitizeQueryText(
-      queryText,
-      settings.maxQueryTextLength,
-    );
+  if (statement !== undefined) {
+    attributes[SEMATTRS_DB_STATEMENT] = statement;
   }
 
   if (settings.peerName) {
@@ -354,6 +396,16 @@ function isWrapped(fn: unknown): boolean {
 }
 
 function setHidden(target: object, key: PropertyKey, value: unknown): void {
+  // Updating a marker we already defined keeps it non-enumerable, and a plain store is far
+  // cheaper than `Object.defineProperty` on paths that run for every transaction.
+  if (Object.prototype.hasOwnProperty.call(target, key)) {
+    try {
+      (target as Record<PropertyKey, unknown>)[key] = value;
+      return;
+    } catch {
+      // Read-only: fall through.
+    }
+  }
   try {
     Object.defineProperty(target, key, {
       value,
@@ -375,7 +427,9 @@ function patchMethod(
   original: QueryFunction,
   wrapper: QueryFunction,
 ): boolean {
-  setHidden(wrapper, WRAPPED_MARK, original);
+  // Plain store: wrappers are created for every prepared query, and symbol keys stay out of
+  // `Object.keys` / JSON anyway.
+  (wrapper as Record<PropertyKey, any>)[WRAPPED_MARK] = original;
   try {
     target[name] = wrapper;
   } catch {
@@ -446,7 +500,7 @@ function isDelegatedCall(
   // Called from inside another instrumented method on the same prepared query
   // (e.g. libsql `all()` -> `values()`)
   if (
-    prepared[BUSY_FLAG] === true ||
+    busyPrepared === prepared ||
     activeContext.getValue(ACTIVE_QUERY_CONTEXT_KEY) === prepared
   ) {
     return true;
@@ -475,6 +529,8 @@ function instrumentPreparedQuery(
     return;
   }
 
+  // Described on first execution, then reused: a prepared query can run many times.
+  let query: QueryDescription | undefined;
   for (const method of PREPARED_QUERY_METHODS) {
     const original = prepared[method];
     if (typeof original !== "function" || isWrapped(original)) {
@@ -495,7 +551,8 @@ function instrumentPreparedQuery(
           return original.apply(this, args);
         }
 
-        const span = startQuerySpan(settings, queryText, {
+        query ??= describeQuery(settings, queryText);
+        const span = startQuerySpan(settings, query, {
           transaction: isInTransaction(session, activeContext),
         });
         const spanContext = trace
@@ -503,22 +560,18 @@ function instrumentPreparedQuery(
           .setValue(ACTIVE_QUERY_CONTEXT_KEY, self);
 
         return runPreservingResult(span, spanContext, () => {
-          setHidden(self, BUSY_FLAG, true);
+          const previous = busyPrepared;
+          busyPrepared = self;
           try {
             return original.apply(this, args);
           } finally {
-            setHidden(self, BUSY_FLAG, false);
+            busyPrepared = previous;
           }
         });
       },
     );
   }
 }
-
-// Prepared queries / errors already handled by a prepare wrapper
-// (`prepareOneTimeQuery` calls `prepareQuery`).
-const seenPreparedQueries = new WeakSet<object>();
-const failedPrepareErrors = new WeakSet<object>();
 
 /**
  * Wraps `session.prepareQuery` (and friends) so the prepared queries they return are traced.
@@ -541,39 +594,34 @@ function wrapPrepareMethod(
     method,
     original,
     function (this: any, ...args: any[]) {
+      // Prepare is synchronous, so a nested call (`prepareOneTimeQuery` -> `prepareQuery`,
+      // same query) always finishes inside the outermost wrapper, which owns the query.
+      if (preparing) {
+        return original.apply(this, args);
+      }
       const owner = isObjectLike(this) ? this : session;
       const queryText = extractQueryText(args[0]);
 
       let prepared: unknown;
+      preparing = true;
       try {
         prepared = original.apply(this, args);
       } catch (error) {
         // Some drivers compile the statement up front (better-sqlite3 rejects unknown
         // columns here), so the query fails before it ever executes.
-        if (!(isObjectLike(error) && failedPrepareErrors.has(error))) {
-          if (isObjectLike(error)) {
-            failedPrepareErrors.add(error);
-          }
-          finalizeSpan(
-            startQuerySpan(settings, queryText, {
-              transaction: isInTransaction(owner, context.active()),
-            }),
-            error,
-          );
-        }
+        finalizeSpan(
+          startQuerySpan(settings, describeQuery(settings, queryText), {
+            transaction: isInTransaction(owner, context.active()),
+          }),
+          error,
+        );
         throw error;
+      } finally {
+        preparing = false;
       }
 
-      if (isObjectLike(prepared)) {
-        if (seenPreparedQueries.has(prepared)) {
-          return prepared;
-        }
-        seenPreparedQueries.add(prepared);
-      }
-
-      const batchStatements = owner[BATCH_STATEMENTS];
-      if (Array.isArray(batchStatements) && queryText !== undefined) {
-        batchStatements.push(queryText);
+      if (queryText !== undefined) {
+        batchStatements?.push(queryText);
       }
 
       instrumentPreparedQuery(prepared, owner, queryText, settings);
@@ -608,7 +656,8 @@ function wrapSessionQuery(
         return original.apply(this, args);
       }
 
-      const span = startQuerySpan(settings, extractQueryText(args[0]), {
+      const query = describeQuery(settings, extractQueryText(args[0]));
+      const span = startQuerySpan(settings, query, {
         transaction: isInTransaction(this, activeContext),
       });
       return runAsPromise(span, () => original.apply(this, args));
@@ -639,8 +688,7 @@ function wrapBatchMethod(
     function (this: any, ...args: any[]) {
       const owner = isObjectLike(this) ? this : session;
       const activeContext = context.active();
-      const span = startQuerySpan(settings, undefined, {
-        operation: "BATCH",
+      const span = startQuerySpan(settings, BATCH_QUERY, {
         transaction: isInTransaction(owner, activeContext),
       });
       if (Array.isArray(args[0])) {
@@ -651,20 +699,20 @@ function wrapBatchMethod(
         span,
         trace.setSpan(activeContext, span),
         () => {
-          // Batches prepare their queries synchronously; collect the SQL on the way.
+          if (!settings.captureQueryText) {
+            return original.apply(this, args);
+          }
+          const previous = batchStatements;
           const statements: string[] = [];
-          setHidden(owner, BATCH_STATEMENTS, statements);
+          batchStatements = statements;
           try {
             return original.apply(this, args);
           } finally {
-            setHidden(owner, BATCH_STATEMENTS, undefined);
-            if (settings.captureQueryText && statements.length > 0) {
+            batchStatements = previous;
+            if (statements.length > 0) {
               span.setAttribute(
                 SEMATTRS_DB_STATEMENT,
-                sanitizeQueryText(
-                  statements.join(";\n"),
-                  settings.maxQueryTextLength,
-                ),
+                joinBatchStatements(statements, settings.maxQueryTextLength),
               );
             }
           }
@@ -695,7 +743,8 @@ function wrapExecuteMethod(
     "execute",
     original,
     function (this: any, ...args: any[]) {
-      const span = startQuerySpan(settings, extractQueryText(args[0]), options);
+      const query = describeQuery(settings, extractQueryText(args[0]));
+      const span = startQuerySpan(settings, query, options);
       return runAsPromise(span, () => original.apply(this, args));
     },
   );
@@ -935,7 +984,10 @@ export function instrumentDrizzle<TClient extends DrizzleClientLike>(
       callback = args.pop() as QueryCallback;
     }
 
-    const span = startQuerySpan(settings, extractQueryText(args[0]));
+    const span = startQuerySpan(
+      settings,
+      describeQuery(settings, extractQueryText(args[0])),
+    );
 
     // Callback-based pattern
     if (callback) {
